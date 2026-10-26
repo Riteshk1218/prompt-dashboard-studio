@@ -1,0 +1,1340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Upload Excel or CSV, describe the dashboard you want, and AI builds the charts.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Crect width='18' height='18' rx='4' fill='%230d7a72'/%3E%3Crect x='3' y='9' width='3' height='6' fill='white'/%3E%3Crect x='7.5' y='6' width='3' height='9' fill='white'/%3E%3Crect x='12' y='3' width='3' height='12' fill='white'/%3E%3C/svg%3E">
+<title>Prompt Dashboard Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: prompt bar on top, then a report canvas — KPI strip, slicers, two-column chart grid; Data tab shows the table. */
+:root{
+  --bg:#eaefee; --surface:#ffffff; --surface-2:#f4f7f6; --ink:#14201f; --ink-2:#4f5e5c; --ink-3:#7c8a88;
+  --line:#d6dedc; --accent:#0d7a72; --accent-ink:#ffffff; --accent-soft:#d6ecea; --danger:#b4423a; --good:#2f7d3a;
+  --c1:#0d7a72; --c2:#cf8418; --c3:#5753c4; --c4:#c2446d; --c5:#4c8c36; --c6:#2b7cc0; --c7:#8a6a50;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Figtree", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0e1514; --surface:#162020; --surface-2:#1c2827; --ink:#e4eeec; --ink-2:#a3b4b1; --ink-3:#748784;
+  --line:#2a3937; --accent:#3dbfb2; --accent-ink:#062120; --accent-soft:#163631; --danger:#ec7b70; --good:#79c47d;
+  --c1:#3dbfb2; --c2:#efa940; --c3:#8f8bf0; --c4:#ec7aa1; --c5:#82c564; --c6:#62adf0; --c7:#c49d7d; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0e1514; --surface:#162020; --surface-2:#1c2827; --ink:#e4eeec; --ink-2:#a3b4b1; --ink-3:#748784;
+  --line:#2a3937; --accent:#3dbfb2; --accent-ink:#062120; --accent-soft:#163631; --danger:#ec7b70; --good:#79c47d;
+  --c1:#3dbfb2; --c2:#efa940; --c3:#8f8bf0; --c4:#ec7aa1; --c5:#82c564; --c6:#62adf0; --c7:#c49d7d; color-scheme:dark }
+
+html,body{height:auto}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:16px 40px}
+.wrap{max-width:1280px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+button,select,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Top bar */
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.mark{width:30px;height:30px;border-radius:8px;background:var(--accent);display:grid;place-items:center}
+.mark svg{display:block}
+.brand h1{font-family:var(--f-display);font-size:1.25rem;margin:0;letter-spacing:-.01em;line-height:1.2}
+.brand-t{display:flex;flex-direction:column;min-width:0}
+.credit{font-size:.75rem;color:var(--ink-3);user-select:text;overflow-wrap:anywhere}
+.source{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:.85rem;color:var(--ink-2)}
+.pill{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 10px;min-width:0;max-width:100%}
+.pill b{color:var(--ink);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--ink-3)}
+.dot.on{background:var(--good)} .dot.off{background:var(--danger)}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:600;font-size:.88rem}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn:disabled{opacity:.55;cursor:default}
+
+/* Prompt */
+.ask{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.ask-row{display:flex;gap:10px;align-items:stretch}
+.ask textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);background:var(--surface-2);border-radius:10px;padding:10px 12px;min-height:48px;font-size:1rem;line-height:1.4}
+.ask textarea:focus{outline:none;border-color:var(--accent)}
+.ask .go{padding:0 18px;font-size:.95rem}
+.ask-foot{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{border:1px dashed var(--line);background:transparent;border-radius:999px;padding:4px 11px;font-size:.82rem;color:var(--ink-2);cursor:pointer}
+.chip:hover{border-style:solid;border-color:var(--accent);color:var(--ink)}
+.ask-opts{display:flex;align-items:center;gap:14px;margin-left:auto;font-size:.82rem;color:var(--ink-2)}
+.ask-opts label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.status{font-size:.85rem;color:var(--ink-2);display:flex;align-items:center;gap:8px;min-height:1.2em}
+.status.err{color:var(--danger)}
+.spin{width:14px;height:14px;border:2px solid var(--accent-soft);border-top-color:var(--accent);border-radius:50%;animation:sp 0.8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* Tabs */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line)}
+.tab{border:0;background:none;padding:8px 14px;font-weight:600;color:var(--ink-2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+
+/* Report */
+.report-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.report-head h2{font-family:var(--f-display);font-size:1.6rem;margin:0;letter-spacing:-.015em;text-wrap:balance}
+.report-head .sub{font-size:.85rem;color:var(--ink-3)}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+.main{display:flex;flex-direction:column;gap:14px;min-width:0}
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.slicer{display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--ink-2)}
+.slicer select{border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:4px 8px;font-size:.85rem;max-width:170px}
+.fchip{display:inline-flex;align-items:center;gap:6px;background:var(--accent-soft);color:var(--ink);border-radius:7px;padding:4px 6px 4px 10px;font-size:.82rem;border:0}
+.fchip button{border:0;background:none;cursor:pointer;color:var(--ink-2);font-size:1rem;line-height:1;padding:0 4px}
+.clear{border:0;background:none;color:var(--accent);font-weight:600;font-size:.82rem;cursor:pointer}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.kpi .lbl{font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);font-weight:600}
+.kpi .val{font-family:var(--f-mono);font-size:1.5rem;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi svg{width:100%;height:30px;display:block;margin-top:4px}
+
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px 10px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.card.full{grid-column:1/-1}
+.card-h{display:flex;align-items:center;gap:8px}
+.card-h h3{font-size:.95rem;margin:0;font-weight:700;margin-right:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-h select{border:1px solid transparent;background:transparent;border-radius:6px;font-size:.78rem;color:var(--ink-3);padding:2px 4px;cursor:pointer}
+.card-h select:hover{border-color:var(--line)}
+.x{border:0;background:none;color:var(--ink-3);cursor:pointer;font-size:1.05rem;line-height:1;padding:2px 4px;border-radius:5px}
+.x:hover{color:var(--danger);background:var(--surface-2)}
+.card .meta{font-size:.75rem;color:var(--ink-3)}
+.chart{height:280px;width:100%}
+.card.full .chart{height:300px}
+.tbl-wrap{max-height:300px;overflow:auto;border-radius:6px}
+table{border-collapse:collapse;width:100%;font-size:.85rem}
+th,td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{position:sticky;top:0;background:var(--surface-2);font-weight:600;font-size:.78rem;color:var(--ink-2)}
+td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.bar-cell{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+.bar-cell i{display:block;height:6px;border-radius:3px;background:var(--accent);opacity:.55}
+
+/* Insights */
+.side{position:sticky;top:12px;display:flex;flex-direction:column;gap:12px}
+.insights{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.insights h3{font-family:var(--f-display);font-size:1.05rem;margin:0 0 2px}
+.insights .by{font-size:.75rem;color:var(--ink-3);margin-bottom:10px}
+.insights ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+.insights li{font-size:.9rem;padding-left:12px;border-left:2px solid var(--accent);line-height:1.45}
+.howto{font-size:.82rem;color:var(--ink-2);background:var(--surface-2);border-radius:var(--r);padding:12px 14px;line-height:1.5}
+.howto b{color:var(--ink)}
+
+.data-head{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:.85rem;color:var(--ink-2)}
+.type{font-family:var(--f-mono);font-size:.68rem;padding:1px 5px;border-radius:4px;background:var(--surface-2);color:var(--ink-3);margin-left:4px;text-transform:uppercase}
+.data-tbl{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);max-height:560px;overflow:auto}
+
+.drop{position:fixed;inset:0;background:color-mix(in srgb,var(--bg) 80%,transparent);display:grid;place-items:center;z-index:50;pointer-events:none}
+.drop div{border:2px dashed var(--accent);border-radius:16px;padding:40px 48px;background:var(--surface);font-family:var(--f-display);font-size:1.3rem}
+.empty{padding:30px;text-align:center;color:var(--ink-3);border:1px dashed var(--line);border-radius:var(--r)}
+
+/* Drill-through details */
+.kpi{cursor:pointer}
+.kpi:hover{border-color:var(--accent)}
+.dt-back{position:fixed;inset:0;z-index:60;background:color-mix(in srgb, var(--ink) 45%, transparent);display:flex;align-items:center;justify-content:center;
+  padding:max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))}
+.dt{background:var(--surface);border:1px solid var(--line);border-radius:14px;width:min(1200px, 100%);height:min(860px, 100%);display:flex;flex-direction:column;gap:12px;padding:18px 18px 12px;min-width:0;box-shadow:0 20px 60px rgb(0 0 0 / .25)}
+.dt-h{display:flex;gap:12px;align-items:flex-start}
+.dt-t{flex:1;min-width:0}
+.dt-eyebrow{font-size:.75rem;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dt h2{font-family:var(--f-display);font-size:1.5rem;margin:2px 0 8px;letter-spacing:-.01em;overflow-wrap:anywhere}
+.dt-conds{display:flex;flex-wrap:wrap;gap:6px}
+.dt-close{font-size:1.6rem}
+.dt-sum{display:flex;flex-wrap:wrap;gap:8px}
+.dt-sum div{background:var(--surface-2);border-radius:8px;padding:6px 12px;display:flex;flex-direction:column;min-width:0}
+.dt-sum span{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);font-weight:600}
+.dt-sum b{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:1.05rem}
+.dt-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.dt-bar input{flex:1;min-width:160px;border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:7px 10px}
+.dt-count{font-size:.85rem;color:var(--ink-2)}
+.dt-msg{font-size:.82rem;color:var(--ink-2);min-height:1.1em;margin-top:-6px}
+.dt-msg.err{color:var(--danger)}
+.dt-tbl{flex:1;min-height:0;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.dt-tbl th{z-index:1}
+.sort{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer;white-space:nowrap}
+.dt-more{padding:10px;text-align:center}
+
+/* Pages + downloads */
+.tabs{align-items:flex-end}
+.dl{margin-left:auto;position:relative;padding-bottom:6px}
+.menu{position:absolute;right:0;top:calc(100% + 2px);z-index:30;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgb(0 0 0 / .16);padding:6px;width:min(280px, calc(100vw - 32px));display:flex;flex-direction:column}
+.menu button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;border:0;background:none;text-align:left;padding:8px 10px;border-radius:7px;cursor:pointer}
+.menu button:hover,.menu button:focus-visible{background:var(--surface-2)}
+.menu b{font-size:.9rem}
+.menu span{font-size:.78rem;color:var(--ink-3)}
+.pages{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.page{display:flex;align-items:center;border:1px solid var(--line);background:var(--surface);border-radius:8px;min-width:0;max-width:240px}
+.page.on{background:var(--accent-soft);border-color:var(--accent)}
+.page-b{border:0;background:none;padding:6px 10px;font-weight:600;font-size:.85rem;cursor:pointer;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.page.on .page-b{color:var(--ink)}
+.page-x{border:0;background:none;color:var(--ink-3);cursor:pointer;padding:0 8px 0 0;font-size:1rem;line-height:1}
+.page-x:hover{color:var(--danger)}
+.page-add{border:1px dashed var(--line);background:none;border-radius:8px;padding:6px 12px;font-weight:600;font-size:.85rem;color:var(--accent);cursor:pointer}
+.page-add:hover{border-style:solid;border-color:var(--accent)}
+#dashTitle{border-radius:6px;outline:none;padding:0 4px;margin-left:-4px;cursor:text}
+#dashTitle:hover{background:var(--surface-2)}
+#dashTitle:focus{background:var(--surface);box-shadow:0 0 0 2px var(--accent)}
+.export-host{position:fixed;left:-30000px;top:0;width:1400px}
+.export-host .chart{height:300px!important}
+
+.code-row{display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--ink-2)}
+.code-row input{border:1px solid var(--line);background:var(--surface-2);border-radius:7px;padding:5px 9px;width:200px;max-width:100%}
+
+@media (max-width: 960px){ .layout{grid-template-columns:minmax(0,1fr)} .side{position:static} }
+@media (max-width: 680px){ .grid{grid-template-columns:minmax(0,1fr)} .ask-row{flex-direction:column} .ask .go{padding:10px} .ask-opts{margin-left:0} .chart,.card.full .chart{height:250px} .report-head h2{font-size:1.3rem} }
+@media (prefers-reduced-motion: reduce){ .spin{animation:none} }
+[hidden]{display:none!important}
+*{box-sizing:border-box}
+body{margin:0}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="mark" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 18 18"><rect x="2" y="9" width="3" height="7" rx="1" fill="var(--accent-ink)"/><rect x="7.5" y="5" width="3" height="11" rx="1" fill="var(--accent-ink)"/><rect x="13" y="2" width="3" height="14" rx="1" fill="var(--accent-ink)"/></svg></div>
+      <div class="brand-t"><h1>Prompt Dashboard Studio</h1><div class="credit">Developed by RK (kondekarritesh33@gmail.com)</div></div>
+    </div>
+    <div class="source">
+      <span class="pill" title="Current data source"><span>Data</span><b id="srcName">Sample: lab supply sales</b><span id="srcSize"></span></span>
+      <select id="sheetSel" class="btn" hidden aria-label="Sheet"></select>
+      <span class="pill" id="aiPill" hidden title="Whether Claude can build dashboards in this view"><span class="dot" id="aiDot"></span><span id="aiTxt">Connecting to Claude…</span></span>
+      <label class="btn primary" for="file">Upload Excel / CSV</label>
+      <input type="file" id="file" accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsm,.ods" hidden>
+    </div>
+  </header>
+
+  <section class="ask" aria-label="Ask for a dashboard">
+    <div class="ask-row">
+      <textarea id="prompt" rows="2" placeholder="Describe the dashboard you want, e.g. “Monthly profit trend by region and top 10 products”"></textarea>
+      <button class="btn primary go" id="goBtn">Build dashboard</button>
+    </div>
+    <div class="ask-foot">
+      <div id="chips" style="display:contents"></div>
+      <div class="ask-opts">
+        <label><input type="checkbox" id="addMode"> Add to this page</label>
+      </div>
+    </div>
+    <div class="code-row" id="codeRow" hidden><label for="accessCode">Access code</label><input id="accessCode" type="password" autocomplete="off" placeholder="Ask the site owner"></div>
+    <div class="status" id="status" aria-live="polite"></div>
+  </section>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tabDash" aria-selected="true">Dashboard</button>
+    <button class="tab" role="tab" id="tabData" aria-selected="false">Data</button>
+    <div class="dl">
+      <button class="btn" id="dlBtn" aria-haspopup="menu" aria-expanded="false"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M7 1.5v7.5M3.8 6l3.2 3.2L10.2 6M2 12.5h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Download</button>
+      <div class="menu" id="dlMenu" role="menu" hidden>
+        <button role="menuitem" data-k="pdf-all"><b>PDF report</b><span>Every page, one per PDF page</span></button>
+        <button role="menuitem" data-k="pdf-one"><b>PDF, this page</b><span>Only the page you're on</span></button>
+        <button role="menuitem" data-k="png"><b>Image (PNG)</b><span>This page, for slides or WhatsApp</span></button>
+        <button role="menuitem" data-k="xlsx"><b>Excel workbook</b><span>Numbers behind every chart, plus your data</span></button>
+      </div>
+    </div>
+  </nav>
+
+  <section id="dashView">
+    <div class="pages" id="pages" aria-label="Dashboard pages"></div>
+    <div class="layout">
+      <div class="main">
+        <div class="report-head">
+          <div><h2 id="dashTitle" contenteditable="true" spellcheck="false" title="Click to rename this page"></h2><div class="sub" id="dashSub"></div></div>
+        </div>
+        <div class="filters" id="filters"></div>
+        <div class="kpis" id="kpis"></div>
+        <div class="grid" id="grid"></div>
+      </div>
+      <aside class="side">
+        <div class="insights">
+          <h3>Insights</h3>
+          <div class="by" id="insBy">Calculated from the charts</div>
+          <ol id="insList"></ol>
+        </div>
+        <div class="howto"><b>Tips.</b> Click any bar or slice to filter the whole page. <b>Double-click</b> a bar, slice, line point, table row or KPI to see the rows behind it and download them. Use <b>+ New page</b> to build more dashboards from the same data, and click a page title to rename it. <b>Download</b> saves every page as a PDF, an image or an Excel workbook.</div>
+      </aside>
+    </div>
+  </section>
+
+  <section id="dataView" hidden>
+    <div class="data-head" id="dataHead"></div>
+    <div class="data-tbl" id="dataTbl"></div>
+  </section>
+</div>
+<div class="drop" id="drop" hidden><div>Drop your Excel or CSV file</div></div>
+<div class="dt-back" id="dt" hidden>
+  <div class="dt" role="dialog" aria-modal="true" aria-labelledby="dtTitle">
+    <div class="dt-h">
+      <div class="dt-t"><div class="dt-eyebrow" id="dtSrc"></div><h2 id="dtTitle"></h2><div class="dt-conds" id="dtConds"></div></div>
+      <button class="x dt-close" id="dtClose" aria-label="Close details" title="Close (Esc)">×</button>
+    </div>
+    <div class="dt-sum" id="dtSum"></div>
+    <div class="dt-bar">
+      <input id="dtQ" type="search" placeholder="Search these rows" aria-label="Search these rows">
+      <span class="dt-count" id="dtCount"></span>
+      <button class="btn" id="dtCsv">CSV</button>
+      <button class="btn primary" id="dtXlsx">Download Excel</button>
+    </div>
+    <div class="dt-msg" id="dtMsg" aria-live="polite"></div>
+    <div class="dt-tbl" id="dtTbl"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const S = { rows: [], cols: [], spec: null, filters: [], label: "", charts: [], ai: undefined, busy: null, wb: null, fileName: "" };
+const TYPES = ["bar","hbar","line","area","stacked","pie","donut","scatter","table"];
+const TYPE_LABEL = {bar:"Column",hbar:"Bar",line:"Line",area:"Area",stacked:"Stacked",pie:"Pie",donut:"Donut",scatter:"Scatter",table:"Table"};
+const AGGS = ["sum","avg","count","min","max","distinct"];
+const AGG_LABEL = {sum:"Total",avg:"Average",count:"Count",min:"Min",max:"Max",distinct:"Distinct"};
+
+/* ---------- formatting ---------- */
+const MONEY_RE = /revenue|sales|amount|price|cost|profit|income|expense|spend|value|₹|inr|\brs\b|salary|budget|gmv|margin amt/i;
+function fmtOf(colName){ if(!colName) return "number"; if(S.spec?.formats?.[colName]) return S.spec.formats[colName]; return MONEY_RE.test(colName) ? "currency" : (/%|percent|pct|rate/i.test(colName) ? "percent" : "number"); }
+function compact(v, short){
+  const a = Math.abs(v);
+  if (a >= 1e7) return (v/1e7).toFixed(short ? 1 : 2).replace(/\.0+$/,"") + " Cr";
+  if (a >= 1e5) return (v/1e5).toFixed(short ? 1 : 2).replace(/\.0+$/,"") + " L";
+  if (a >= 1000) return Math.round(v).toLocaleString("en-IN");
+  return (Math.round(v*100)/100).toLocaleString("en-IN");
+}
+function fmtVal(v, f, short){
+  if (v == null || Number.isNaN(v)) return "–";
+  if (f === "currency") return (v < 0 ? "−₹" : "₹") + compact(Math.abs(v), short);
+  if (f === "percent") return (Math.round(v*10)/10) + "%";
+  return compact(v, short);
+}
+const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const pad = n => String(n).padStart(2,"0");
+function bucket(ts, g){
+  const d = new Date(ts), y = d.getFullYear(), m = d.getMonth();
+  if (g === "year") return String(y);
+  if (g === "quarter") return `${y}-Q${Math.floor(m/3)+1}`;
+  if (g === "month") return `${y}-${pad(m+1)}`;
+  if (g === "week"){ const w = new Date(y, m, d.getDate() - ((d.getDay()+6)%7)); return `${w.getFullYear()}-${pad(w.getMonth()+1)}-${pad(w.getDate())}`; }
+  return `${y}-${pad(m+1)}-${pad(d.getDate())}`;
+}
+function bucketLabel(k, g){
+  if (g === "year") return k;
+  if (g === "quarter"){ const [y,q] = k.split("-"); return `${q} ${y}`; }
+  if (g === "month"){ const [y,m] = k.split("-"); return `${MON[+m-1]} ${y.slice(2)}`; }
+  const [y,m,d] = k.split("-"); return `${+d} ${MON[+m-1]}${g==="week"?"":" "+y.slice(2)}`;
+}
+function autoGrain(col){ const days = (col.max - col.min)/864e5; return days > 1460 ? "year" : days > 400 ? "quarter" : days > 62 ? "month" : days > 20 ? "week" : "day"; }
+
+/* ---------- parsing & typing ---------- */
+function parseNum(v){
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  if (typeof v !== "string") return null;
+  let s = v.trim().replace(/[₹$€£,\s]/g,"").replace(/^rs\.?/i,"");
+  if (s.endsWith("%")) s = s.slice(0,-1);
+  if (/^\((.+)\)$/.test(s)) s = "-" + s.slice(1,-1);
+  if (s === "" || !/^-?\d*\.?\d+(e[+-]?\d+)?$/i.test(s)) return null;
+  return Number(s);
+}
+const DATE_RES = [/^\d{4}-\d{1,2}-\d{1,2}/, /^\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}$/, /^\d{1,2}[ \-][A-Za-z]{3,9}[ \-,]+\d{2,4}$/, /^[A-Za-z]{3,9}[ \-]\d{1,2},? \d{4}$/, /^[A-Za-z]{3,9}[ \-']\d{2,4}$/];
+function parseDate(v){
+  if (v instanceof Date){
+    if (isNaN(v)) return null;
+    // The spreadsheet reader returns plain dates as UTC midnight; keep them as that calendar day in local time.
+    if (!v.getUTCHours() && !v.getUTCMinutes() && !v.getUTCSeconds()) return new Date(v.getUTCFullYear(), v.getUTCMonth(), v.getUTCDate()).getTime();
+    return Math.round(v.getTime() / 60000) * 60000;
+  }
+  if (typeof v !== "string") return null;
+  const s = v.trim(); if (!DATE_RES.some(r => r.test(s))) return null;
+  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (iso) return new Date(+iso[1], +iso[2] - 1, +iso[3]).getTime();   // local midnight, so no stray time-zone hours
+  const m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})$/);
+  if (m){ let [_, a, b, y] = m; a=+a; b=+b; y=+y; if (y < 100) y += 2000;
+    let d = a, mo = b; if (b > 12 && a <= 12){ d = b; mo = a; }           // day-first unless impossible
+    const t = new Date(y, mo-1, d).getTime(); return isNaN(t) ? null : t; }
+  const t = Date.parse(s.length <= 8 && /^[A-Za-z]/.test(s) ? "1 " + s.replace(/['\-]/," ") : s);
+  return isNaN(t) ? null : t;
+}
+function inferAndCoerce(raw){
+  const keys = []; const seen = new Set();
+  for (const r of raw.slice(0, 500)) for (const k of Object.keys(r)) if (!seen.has(k)){ seen.add(k); keys.push(k); }
+  const cols = [];
+  for (const k of keys){
+    const vals = []; for (const r of raw){ const v = r[k]; if (v !== null && v !== undefined && v !== "") vals.push(v); if (vals.length >= 3000) break; }
+    if (!vals.length) continue;
+    if (/^__EMPTY/.test(k) && vals.length < raw.length*0.2) continue;
+    let nNum = 0, nDate = 0;
+    for (const v of vals){ if (v instanceof Date || (typeof v === "string" && parseNum(v) === null && parseDate(v) !== null)) nDate++; else if (parseNum(v) !== null) nNum++; }
+    let type = nDate >= vals.length*0.8 ? "date" : nNum >= vals.length*0.85 ? "number" : "category";
+    if (type === "number" && /(^|[\s_])(id|code|pin|zip|phone|mobile)$|^id$/i.test(k)) type = "category";
+    cols.push({ name: String(k).trim() || "Column", key: k, type });
+  }
+  const rows = raw.map(r => { const o = {}; for (const c of cols){ const v = r[c.key];
+    o[c.name] = (v === null || v === undefined || v === "") ? null : c.type === "number" ? parseNum(v) : c.type === "date" ? parseDate(v) : String(v).trim(); } return o; });
+  const outCols = cols.map(({ name, type }) => ({ name, type }));
+  deriveTagged(rows, outCols);
+  return { rows, cols: outCols };
+}
+/* Values like "(Hospital) Shivani Scientific…" or "(Contact) Rajhev Singh" get split into "<col> Type" and "<col> Name". */
+function deriveTagged(rows, cols){
+  const RE = /^\s*[\(\[]\s*([^)\]]{1,40}?)\s*[\)\]]\s*[-:–]?\s*(.*)$/;
+  const names = new Set(cols.map(c => c.name));
+  const uniq = n => { let s = n, k = 2; while (names.has(s)) s = `${n} ${k++}`; names.add(s); return s; };
+  for (let i = cols.length - 1; i >= 0; i--){
+    const c = cols[i]; if (c.type !== "category") continue;
+    let n = 0, hit = 0;
+    for (const r of rows){ const v = r[c.name]; if (v == null) continue; n++; if (RE.test(v)) hit++; if (n >= 3000) break; }
+    if (n < 2 || hit < n * 0.6) continue;
+    const tn = uniq(`${c.name} Type`), nn = uniq(`${c.name} Name`);
+    for (const r of rows){ const v = r[c.name]; const m = v == null ? null : String(v).match(RE);
+      r[tn] = v == null ? null : m ? m[1].trim() : "(none)"; r[nn] = v == null ? null : m ? (m[2].trim() || null) : String(v); }
+    c.tagged = true;
+    cols.splice(i + 1, 0, { name: tn, type: "category", pair: nn }, { name: nn, type: "category", typeCol: tn });
+  }
+}
+function computeStats(){
+  for (const c of S.cols){
+    const set = new Map(); let min = Infinity, max = -Infinity, sum = 0, n = 0;
+    for (const r of S.rows){ const v = r[c.name]; if (v == null) continue; n++;
+      if (c.type === "category"){ set.set(v, (set.get(v)||0)+1); }
+      else { if (v < min) min = v; if (v > max) max = v; if (c.type === "number") sum += v; } }
+    c.n = n;
+    if (c.type === "category"){ c.card = set.size; c.all = [...set.keys()]; c.top = [...set.entries()].sort((a,b)=>b[1]-a[1]).slice(0,12).map(e=>e[0]); }
+    else { c.min = min; c.max = max; c.sum = sum; }
+  }
+}
+
+/* ---------- sample data: lab-supply distributor ---------- */
+function makeSample(){
+  let s = 20251; const rnd = () => (s = (s*1664525 + 1013904223) % 4294967296) / 4294967296;
+  const pick = a => a[Math.floor(rnd()*a.length)];
+  const regions = {West:[1.35,["Mumbai","Pune","Ahmedabad","Surat"]], South:[1.25,["Bengaluru","Chennai","Hyderabad","Kochi"]], North:[1.1,["Delhi","Chandigarh","Lucknow","Jaipur"]], East:[0.8,["Kolkata","Bhubaneswar","Patna","Guwahati"]], Central:[0.65,["Bhopal","Indore","Nagpur","Raipur"]]};
+  const products = {"Lab Instruments":[0.62,[["pH Meter",18500],["Centrifuge",142000],["Analytical Balance",96000],["UV-Vis Spectrophotometer",385000]]],
+    "Glassware":[0.55,[["Beaker Set",2400],["Volumetric Flask",1800],["Burette",1500]]], "Chemicals":[0.68,[["AR Grade Reagent",3200],["Buffer Solution",950],["HPLC Solvent Pack",4600]]],
+    "Consumables":[0.6,[["Pipette Tips (1000)",1200],["Nitrile Gloves (100)",650],["Filter Paper",480]]], "Safety Gear":[0.58,[["Lab Coat",900],["Safety Goggles",550],["Fume Hood Filter",12500]]]};
+  const ctypes = [["Hospital",1.2],["University",1.0],["Pharma",1.4],["Industrial",0.8],["Distributor",0.9]];
+  const rw = Object.entries(regions); const rTot = rw.reduce((a,[,v])=>a+v[0],0);
+  const start = new Date(2025,0,1).getTime(), end = new Date(2026,8,30).getTime(), span = end-start;
+  const rows = [];
+  while (rows.length < 1600){
+    const t = start + rnd()*span, d = new Date(t), mo = d.getMonth();
+    const season = mo === 2 ? 1.7 : mo === 1 ? 1.25 : (mo === 4 || mo === 5) ? 0.75 : 1;   // Indian FY-end spike in March
+    const growth = 0.8 + 0.4*((t-start)/span);
+    if (rnd() > season*growth/1.75) continue;
+    let x = rnd()*rTot, region; for (const [k,v] of rw){ x -= v[0]; if (x <= 0){ region = k; break; } } region ||= "West";
+    const cat = pick(Object.keys(products)); const [pname, price] = pick(products[cat][1]);
+    const [ct] = pick(ctypes);
+    const units = cat === "Lab Instruments" ? 1 + Math.floor(rnd()*3) : 5 + Math.floor(rnd()*70);
+    const rev = Math.round(units*price*(1 - rnd()*0.12));
+    const cost = Math.round(rev*(products[cat][0] + (rnd()-0.5)*0.08));
+    rows.push({"Order Date": new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(), "Region": region, "City": pick(regions[region][1]), "Category": cat, "Product": pname, "Customer Type": ct, "Units": units, "Revenue": rev, "Cost": cost, "Profit": rev - cost});
+  }
+  rows.sort((a,b)=>a["Order Date"]-b["Order Date"]);
+  return { rows, cols: [["Order Date","date"],["Region","category"],["City","category"],["Category","category"],["Product","category"],["Customer Type","category"],["Units","number"],["Revenue","number"],["Cost","number"],["Profit","number"]].map(([name,type])=>({name,type})) };
+}
+const SAMPLE_SPEC = { title: "Sales Overview, Jan 2025 – Sep 2026",
+  kpis: [{label:"Revenue",column:"Revenue",agg:"sum"},{label:"Profit",column:"Profit",agg:"sum"},{label:"Units sold",column:"Units",agg:"sum"},{label:"Orders",column:null,agg:"count"}],
+  charts: [
+    {title:"Monthly revenue",type:"area",x:"Order Date",y:"Revenue",agg:"sum",timeGrain:"month",width:"full"},
+    {title:"Revenue by region",type:"bar",x:"Region",y:"Revenue",agg:"sum"},
+    {title:"Revenue share by category",type:"donut",x:"Category",y:"Revenue",agg:"sum"},
+    {title:"Top cities by profit",type:"hbar",x:"City",y:"Profit",agg:"sum",limit:10},
+    {title:"Quarterly revenue by customer type",type:"stacked",x:"Order Date",y:"Revenue",agg:"sum",series:"Customer Type",timeGrain:"quarter"},
+    {title:"Products ranked by revenue",type:"table",x:"Product",y:"Revenue",agg:"sum",width:"full",limit:20}
+  ]};
+
+/* ---------- aggregation ---------- */
+const colOf = n => S.cols.find(c => c.name === n);
+function newAcc(){ return {n:0,sum:0,min:Infinity,max:-Infinity,set:null}; }
+function addAcc(a, v, agg){
+  if (agg === "count"){ a.n++; return; }
+  if (agg === "distinct"){ if (v != null) (a.set ||= new Set()).add(v); return; }
+  if (v == null || Number.isNaN(v)) return; a.n++; a.sum += v; if (v < a.min) a.min = v; if (v > a.max) a.max = v;
+}
+function accVal(a, agg){ if (!a) return null; return agg === "count" ? a.n : agg === "distinct" ? (a.set ? a.set.size : 0) : !a.n ? null : agg === "sum" ? a.sum : agg === "avg" ? a.sum/a.n : agg === "min" ? a.min : a.max; }
+function aggregate(rows, col, agg){ const a = newAcc(); for (const r of rows) addAcc(a, col ? r[col] : 1, agg); return accVal(a, agg); }
+
+function passes(r, f){
+  const v = r[f.column];
+  if (f.op === "in") return f.values.includes(v == null ? "(blank)" : String(v));
+  if (v == null) return false;
+  if (f.op === "contains"){ const s = String(v).toLowerCase(); return f.values.some(x => s.includes(String(x).toLowerCase())); }
+  if (f.op === "gt") return v > f.value; if (f.op === "lt") return v < f.value;
+  if (f.op === "between") return v >= f.values[0] && v <= f.values[1];
+  return true;
+}
+function filtered(exceptCol){ const fs = S.filters.filter(f => !(exceptCol && f.column === exceptCol && f.src === "click")); return fs.length ? S.rows.filter(r => fs.every(f => passes(r, f))) : S.rows; }
+
+function chartData(c, rows){
+  const xc = colOf(c.x), sc = c.series ? colOf(c.series) : null, agg = c.agg || "sum";
+  const grain = xc.type === "date" ? (c.timeGrain || autoGrain(xc)) : null;
+  if (c.type === "scatter"){
+    const pts = []; const step = Math.max(1, Math.floor(rows.length/2500));
+    for (let i = 0; i < rows.length; i += step){ const r = rows[i]; if (r[c.x] != null && r[c.y] != null) pts.push([r[c.x], r[c.y]]); }
+    return { scatter: pts, grain };
+  }
+  const groups = new Map(), tot = new Map(), sTot = new Map();
+  for (const r of rows){
+    const xv = r[c.x]; const k = xc.type === "date" ? (xv == null ? null : bucket(xv, grain)) : (xv == null ? "(blank)" : String(xv));
+    if (k == null) continue;
+    const s = sc ? (r[c.series] == null ? "(blank)" : String(r[c.series])) : "_";
+    const yv = c.y ? r[c.y] : 1;
+    let g = groups.get(k); if (!g){ g = new Map(); groups.set(k, g); }
+    let a = g.get(s); if (!a){ a = newAcc(); g.set(s, a); } addAcc(a, yv, agg);
+    let t = tot.get(k); if (!t){ t = newAcc(); tot.set(k, t); } addAcc(t, yv, agg);
+    if (sc){ let st = sTot.get(s); if (!st){ st = newAcc(); sTot.set(s, st); } addAcc(st, yv, agg); }
+  }
+  const additive = agg === "sum" || agg === "count";
+  let xs = [...groups.keys()]; const tv = k => accVal(tot.get(k), agg) ?? -Infinity;
+  if (xc.type === "date") xs.sort();
+  else if (c.sort === "asc") xs.sort((a,b) => tv(a)-tv(b));
+  else if (c.sort === "x") xs.sort((a,b) => a.localeCompare(b, undefined, {numeric:true}));
+  else xs.sort((a,b) => tv(b)-tv(a));
+  const pieish = c.type === "pie" || c.type === "donut";
+  const lim = c.limit || (pieish ? 8 : c.type === "table" ? 25 : (c.type === "line" || c.type === "area") ? 400 : sc ? 12 : 15);
+  let other = null;
+  if (xc.type !== "date" && xs.length > lim){
+    const rest = xs.slice(lim - (pieish ? 1 : 0)); xs = xs.slice(0, lim - (pieish ? 1 : 0));
+    if (pieish && additive) other = rest.reduce((a,k) => a + (accVal(tot.get(k), agg) || 0), 0);
+  }
+  let sKeys = ["_"];
+  if (sc){ sKeys = [...sTot.keys()].sort((a,b) => (accVal(sTot.get(b),agg)??0) - (accVal(sTot.get(a),agg)??0)); }
+  const series = [];
+  const shown = sc ? sKeys.slice(0, 6) : sKeys;
+  for (const s of shown) series.push({ name: s === "_" ? (c.y ? `${AGG_LABEL[agg]} ${c.y}` : "Rows") : s, key: s, data: xs.map(k => accVal(groups.get(k).get(s), agg)) });
+  if (sc && sKeys.length > 6 && additive){ const rest = sKeys.slice(6); series.push({ name: "Other", key: null, data: xs.map(k => rest.reduce((a,s) => a + (accVal(groups.get(k).get(s), agg) || 0), 0)) }); }
+  const labels = xs.map(k => grain ? bucketLabel(k, grain) : k);
+  if (other != null){ xs.push("Other"); labels.push("Other"); series[0].data.push(other); }
+  return { xs, labels, series, grain, totals: xs.map(k => k === "Other" ? other : accVal(tot.get(k), agg)) };
+}
+
+/* ---------- spec handling ---------- */
+const norm = s => String(s ?? "").toLowerCase().replace(/[^a-z0-9]/g,"");
+function resolveCol(n){ if (n == null || n === "") return null; const c = colOf(n) || S.cols.find(c => norm(c.name) === norm(n)) || S.cols.find(c => norm(c.name).includes(norm(n)) && norm(n).length > 2); return c ? c.name : undefined; }
+function sanitize(spec){
+  const out = { title: String(spec.title || "Dashboard").slice(0, 90), kpis: [], charts: [], filters: [], formats: {} };
+  for (const k of (spec.kpis || []).slice(0, 5)){
+    let agg = AGGS.includes(k.agg) ? k.agg : "sum"; let col = resolveCol(k.column);
+    if (col === undefined) continue; if (col && colOf(col).type !== "number" && agg !== "distinct") agg = col ? "distinct" : "count";
+    if (!col && agg !== "count") continue;
+    out.kpis.push({ label: String(k.label || (col ? `${AGG_LABEL[agg]} ${col}` : "Rows")).slice(0, 40), column: col, agg });
+  }
+  for (const c of (spec.charts || []).slice(0, 8)){
+    const x = resolveCol(c.x); if (!x) continue;
+    let y = resolveCol(c.y); if (y === undefined) y = null;
+    let agg = AGGS.includes(c.agg) ? c.agg : (y ? "sum" : "count");
+    let type = TYPES.includes(c.type) ? c.type : "bar";
+    if (y && colOf(y).type !== "number" && agg !== "distinct" && agg !== "count") agg = "distinct";
+    if (!y && agg !== "count") agg = "count";
+    const xc = colOf(x);
+    if (type === "scatter" && (xc.type === "category" || !y || colOf(y).type !== "number")) type = "bar";
+    if (xc.type === "number" && type !== "scatter") continue;
+    let series = resolveCol(c.series) || null; if (series && (colOf(series).type !== "category" || series === x)) series = null;
+    if (type === "stacked" && !series) type = xc.type === "date" ? "area" : "bar";
+    if ((type === "pie" || type === "donut") && xc.type === "date") type = "bar";
+    out.charts.push({ title: String(c.title || `${y || "Rows"} by ${x}`).slice(0, 80), type, x, y, agg, series,
+      timeGrain: ["day","week","month","quarter","year"].includes(c.timeGrain) ? c.timeGrain : null,
+      limit: Number.isFinite(+c.limit) && +c.limit > 0 ? Math.min(50, +c.limit) : null,
+      sort: ["asc","desc","x"].includes(c.sort) ? c.sort : null,
+      width: c.width === "full" || type === "table" || (xc.type === "date" && type !== "pie") ? "full" : "half" });
+  }
+  for (const f of (spec.filters || [])){
+    const col = resolveCol(f.column); if (!col) continue; const cc = colOf(col);
+    const toV = v => cc.type === "date" ? parseDate(String(v)) ?? Date.parse(v) : cc.type === "number" ? parseNum(v) : String(v);
+    if ((f.op === "in" || f.op === "contains") && Array.isArray(f.values) && f.values.length && cc.type === "category"){
+      const raw = f.values.map(String).filter(Boolean).slice(0, 25);
+      const exact = raw.map(s => cc.all?.find(t => norm(t) === norm(s)));
+      // exact values become an "is" filter; anything partial ("Rajhev" or a name inside "(Contact) Rajhev Singh") becomes "contains"
+      if (f.op === "in" && exact.every(v => v != null)) out.filters.push({ column: col, op: "in", values: exact.map(String), src: "ai" });
+      else out.filters.push({ column: col, op: "contains", values: raw, src: "ai" });
+    } else if ((f.op === "gt" || f.op === "lt") && f.value != null){ const v = toV(f.value); if (v != null && !isNaN(v)) out.filters.push({ column: col, op: f.op, value: v, src: "ai" }); }
+    else if (f.op === "between" && Array.isArray(f.values) && f.values.length === 2){ const a = toV(f.values[0]), b = toV(f.values[1]); if (!isNaN(a) && !isNaN(b) && a != null && b != null) out.filters.push({ column: col, op: "between", values: [a,b], src: "ai" }); }
+  }
+  // fill a reasonable dashboard if the reply came back thin
+  if (!out.charts.length){ const a = autoSpec(""); out.charts = a.charts; if (!out.kpis.length) out.kpis = a.kpis; }
+  return out;
+}
+/* ---------- reading the prompt without AI: words → filters, measure, grouping ---------- */
+const STOPV = new Set(["all","total","other","others","none","yes","no","na","nil","null","blank","and","the","for","by","of","in","on","to"]);
+const words = s => String(s ?? "").toLowerCase().replace(/[^a-z0-9ऀ-ॿ]+/g, " ").trim();
+const inText = (p, w) => (" " + p + " ").includes(" " + w + " ");
+function promptFilters(prompt){
+  const p = words(prompt); const out = [];
+  if (p.length < 3) return out;
+  for (const c of S.cols){
+    if (c.type !== "category" || !c.all || c.tagged) continue;
+    const hits = c.all.filter(v => { const w = words(v); if (w.length < 3 || STOPV.has(w)) return false; return inText(p, w) || inText(p, w + "s") || inText(p, w + "es"); });
+    if (hits.length && hits.length <= 25) out.push({ column: c.name, op: "in", values: hits.map(String) });
+  }
+  // keep the most specific match: a name ("Rajhev Singh") wins over a word it contains
+  return out;
+}
+function nounFor(p){
+  const blob = (p + " " + S.label + " " + S.cols.map(c => c.name).join(" ")).toLowerCase();
+  return /activit/.test(blob) ? "Activities" : /visit/.test(blob) ? "Visits" : /order|invoice/.test(blob) ? "Orders" : "Records";
+}
+function autoSpec(prompt){
+  const p = words(prompt), has = w => inText(p, w);
+  const filters = promptFilters(prompt);
+  const fixed = new Set(filters.filter(f => f.values.length === 1).map(f => f.column));
+  for (const n of [...fixed]){ const t = colOf(n)?.typeCol; if (t) fixed.add(t); }   // one name fixed → its type is fixed too
+  const nums = S.cols.filter(c => c.type === "number" && !/^(year|s ?no|sr ?no|serial|row|id)$/i.test(c.name.trim()));
+  const timeWords = /\b(minute|minutes|mins|hour|hours|duration|time spent)\b/.test(p);
+  const mentionedNum = nums.find(c => { const w = words(c.name); return w.length > 2 && has(w); })
+    || nums.find(c => words(c.name).split(" ").some(x => x.length > 3 && has(x)))
+    || (timeWords ? nums.find(c => /min|duration|hour|time/i.test(c.name)) : null);
+  const wantsCount = /\b(activit\w*|count|how many|number of|no of|visits?|calls?|meetings?|records?|entries|tasks?|leads?)\b/.test(p);
+  // Count records unless a measure is named; money is the only measure used without being asked for.
+  const m = mentionedNum || (!wantsCount ? nums.find(c => MONEY_RE.test(c.name) && !/min|duration|hour/i.test(c.name)) : null) || null;
+  const noun = nounFor(p);
+  const y = m ? m.name : null, agg = m ? "sum" : "count", what = m ? m.name : noun;
+  const date = S.cols.find(c => c.type === "date");
+  const usable = S.cols.filter(c => c.type === "category" && !c.tagged && c.card >= 2 && !fixed.has(c.name));
+  const mentioned = usable.filter(c => { const w = words(c.name); return w.length > 2 && has(w); });
+  const mentionedLoose = usable.filter(c => !mentioned.includes(c) && words(c.name).split(" ").some(x => x.length > 3 && !["type","name"].includes(x) && has(x)));
+  const sib = filters.map(f => colOf(f.column)?.pair).filter(Boolean).map(colOf).filter(c => c && usable.includes(c));
+  const low = usable.filter(c => c.card <= 12).sort((a, b) => a.card - b.card);
+  const high = usable.filter(c => c.card > 12).sort((a, b) => a.card - b.card);
+  const pick = [];
+  for (const c of [...mentioned, ...sib, ...mentionedLoose]) if (!pick.includes(c)) pick.push(c);
+  const c1 = pick[0] || usable.find(c => c.typeCol) || high[0] || low[0];
+  const distinctCol = usable.find(c => c.typeCol) || (c1 && c1.card > 12 ? c1 : null);
+  const c2 = [...pick.slice(1), ...low].find(c => c !== c1);
+  const c3 = [...pick.slice(1), ...high, ...low].find(c => c !== c1 && c !== c2);
+  const fdesc = filters.map(f => f.values.join(", ")).join(" · ");
+  const spec = { title: fdesc ? `${what} · ${fdesc}` : prompt ? `${what} overview` : `${S.label.replace(/\.[^.]+$/, "")} overview`, filters, kpis: [], charts: [] };
+  spec.kpis.push(m ? { label: `Total ${m.name}`, column: m.name, agg: "sum" } : { label: noun, column: null, agg: "count" });
+  if (m) spec.kpis.push({ label: noun, column: null, agg: "count" });
+  if (distinctCol) spec.kpis.push({ label: `Unique ${distinctCol.name}`, column: distinctCol.name, agg: "distinct" });
+  for (const c of nums.filter(c => c !== m).slice(0, 4 - spec.kpis.length)) spec.kpis.push({ label: `Total ${c.name}`, column: c.name, agg: "sum" });
+  const bar = (c, ttl) => ({ title: ttl, type: c.card > 8 ? "hbar" : "bar", x: c.name, y, agg, limit: c.card > 15 ? 15 : null });
+  if (c1) spec.charts.push(bar(c1, c1.card > 15 ? `Top 15 ${c1.name} by ${what.toLowerCase()}` : `${what} by ${c1.name}`));
+  if (date) spec.charts.push({ title: `${what} over time`, type: "area", x: date.name, y, agg, width: "full" });
+  if (c2) spec.charts.push(c2.card <= 8 ? { title: `${what} share by ${c2.name}`, type: "donut", x: c2.name, y, agg } : bar(c2, `${what} by ${c2.name}`));
+  if (c3) spec.charts.push(bar(c3, c3.card > 15 ? `Top 15 ${c3.name} by ${what.toLowerCase()}` : `${what} by ${c3.name}`));
+  if (date && c2 && c2.card <= 12) spec.charts.push({ title: `${what} by ${c2.name} over time`, type: "stacked", x: date.name, y, agg, series: c2.name, width: "full" });
+  if (!spec.charts.length && S.cols[0]) spec.charts.push({ title: `${noun} by ${S.cols[0].name}`, type: "bar", x: S.cols[0].name, y: null, agg: "count" });
+  return spec;
+}
+
+/* ---------- theme ---------- */
+function tok(){ const cs = getComputedStyle(document.documentElement); const g = n => cs.getPropertyValue(n).trim();
+  return { ink: g("--ink"), ink2: g("--ink-2"), ink3: g("--ink-3"), line: g("--line"), surface: g("--surface"), accent: g("--accent"), pal: ["--c1","--c2","--c3","--c4","--c5","--c6","--c7"].map(g) }; }
+
+/* ---------- render ---------- */
+function render(){
+  renderHead(); renderFilters(); renderKpis(); renderCharts();
+  if (!$("dataView").hidden) renderData();
+}
+function renderHead(){
+  if (document.activeElement !== $("dashTitle")) $("dashTitle").textContent = S.spec.title;
+  const n = filtered().length;
+  $("dashSub").textContent = `${n.toLocaleString("en-IN")} of ${S.rows.length.toLocaleString("en-IN")} rows` + (S.filters.length ? " after filters" : "");
+  $("srcName").textContent = S.label;
+  $("srcSize").textContent = `· ${S.rows.length.toLocaleString("en-IN")} rows × ${S.cols.length} cols`;
+}
+function filterText(f){
+  const c = colOf(f.column); const show = v => c?.type === "date" ? new Date(v).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"}) : c?.type === "number" ? fmtVal(v, fmtOf(f.column)) : v;
+  if (f.op === "contains") return "contains " + f.values.map(x => `“${x}”`).join(" or ");
+  if (f.op === "in") return f.values.length > 3 ? `${f.values.slice(0,3).join(", ")} +${f.values.length-3}` : f.values.join(", ");
+  if (f.op === "gt") return `> ${show(f.value)}`; if (f.op === "lt") return `< ${show(f.value)}`;
+  return `${show(f.values[0])} – ${show(f.values[1])}`;
+}
+function renderFilters(){
+  const box = $("filters"); box.innerHTML = "";
+  const slicerCols = S.cols.filter(c => c.type === "category" && c.card >= 2 && c.card <= 40).sort((a,b) => a.card - b.card).slice(0, 3);
+  for (const c of slicerCols){
+    const cur = S.filters.find(f => f.column === c.name && f.op === "in");
+    const lab = document.createElement("label"); lab.className = "slicer";
+    const id = "sl_" + norm(c.name);
+    lab.innerHTML = `<span>${esc(c.name)}</span>`;
+    const sel = document.createElement("select"); sel.id = id;
+    const vals = [...new Set(S.rows.map(r => r[c.name]).filter(v => v != null))].sort((a,b) => String(a).localeCompare(String(b)));
+    sel.innerHTML = `<option value="">All</option>` + vals.map(v => `<option${cur && cur.values.length === 1 && cur.values[0] === v ? " selected" : ""}>${esc(v)}</option>`).join("");
+    if (cur && cur.values.length > 1) sel.insertAdjacentHTML("afterbegin", `<option selected disabled>${cur.values.length} selected</option>`);
+    sel.onchange = () => { S.filters = S.filters.filter(f => f.column !== c.name); if (sel.value) S.filters.push({ column: c.name, op: "in", values: [sel.value], src: "slicer" }); render(); };
+    lab.append(sel); box.append(lab);
+  }
+  for (const f of S.filters){
+    if (f.src === "slicer" && slicerCols.some(c => c.name === f.column)) continue;
+    const ch = document.createElement("span"); ch.className = "fchip";
+    ch.innerHTML = `<span><b>${esc(f.column)}</b>: ${esc(filterText(f))}</span><button aria-label="Remove filter on ${esc(f.column)}">×</button>`;
+    ch.querySelector("button").onclick = () => { S.filters = S.filters.filter(g => g !== f); render(); };
+    box.append(ch);
+  }
+  if (S.filters.length){ const b = document.createElement("button"); b.className = "clear"; b.textContent = "Clear filters"; b.onclick = () => { S.filters = []; render(); }; box.append(b); }
+}
+function renderKpis(){
+  const box = $("kpis"); box.innerHTML = ""; const rows = filtered(); const t = tok();
+  const date = S.cols.find(c => c.type === "date");
+  for (const k of S.spec.kpis){
+    const v = aggregate(rows, k.column, k.agg);
+    const f = k.agg === "count" || k.agg === "distinct" ? "number" : fmtOf(k.column);
+    const el = document.createElement("div"); el.className = "kpi"; el.title = "Double-click to see the rows behind this number";
+    el.ondblclick = () => openDetail(k.label, filtered(), pageConds(null), "All rows on this page");
+    el.innerHTML = `<div class="lbl">${esc(k.label)}</div><div class="val" title="${esc(fmtVal(v,f))}">${esc(fmtVal(v, f))}</div>`;
+    if (date && rows.length){
+      const d = chartData({ type: "line", x: date.name, y: k.column, agg: k.agg, timeGrain: autoGrain(date) === "day" ? "day" : "month" }, rows);
+      const vals = d.series[0].data.map(v => v ?? 0);
+      if (vals.length > 2){
+        const mn = Math.min(...vals), mx = Math.max(...vals), W = 200, H = 30, sx = W/(vals.length-1), sy = v => H - 3 - (mx === mn ? 0.5 : (v-mn)/(mx-mn))*(H-6);
+        const pts = vals.map((v,i) => `${(i*sx).toFixed(1)},${sy(v).toFixed(1)}`).join(" ");
+        el.insertAdjacentHTML("beforeend", `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><polygon points="0,${H} ${pts} ${W},${H}" fill="${t.accent}" fill-opacity=".12"/><polyline points="${pts}" fill="none" stroke="${t.accent}" stroke-width="1.6" vector-effect="non-scaling-stroke"/><circle cx="${W}" cy="${sy(vals[vals.length-1])}" r="2.5" fill="${t.accent}"/></svg>`);
+      }
+    }
+    box.append(el);
+  }
+}
+function renderCharts(){
+  for (const ch of S.charts) ch.dispose(); S.charts = [];
+  const grid = $("grid"); grid.innerHTML = "";
+  if (!S.spec.charts.length){ grid.innerHTML = `<div class="empty card full">No charts yet. Describe what you want to see above.</div>`; return; }
+  S.spec.charts.forEach((c, i) => {
+    const card = document.createElement("div"); card.className = "card" + (c.width === "full" ? " full" : "");
+    const xc = colOf(c.x); const okTypes = TYPES.filter(t => t === "scatter" ? (xc.type === "number" && c.y) : xc.type === "number" ? false : (t === "stacked" ? !!c.series : xc.type === "date" ? !["pie","donut"].includes(t) : true));
+    const id = "ty_" + i;
+    card.innerHTML = `<div class="card-h"><h3 title="${esc(c.title)}">${esc(c.title)}</h3>
+      <select id="${id}" aria-label="Chart type">${okTypes.map(t => `<option value="${t}"${t === c.type ? " selected" : ""}>${TYPE_LABEL[t]}</option>`).join("")}</select>
+      <button class="x" aria-label="Remove chart" title="Remove chart">×</button></div>
+      <div class="meta">${esc(c.y ? `${AGG_LABEL[c.agg]} of ${c.y}` : AGG_LABEL[c.agg] === "Count" ? "Number of rows" : AGG_LABEL[c.agg])} by ${esc(c.x)}${c.series ? ` and ${esc(c.series)}` : ""}</div>`;
+    card.querySelector("select").onchange = e => { c.type = e.target.value; if (c.type === "table") c.width = "full"; renderCharts(); };
+    card.querySelector(".x").onclick = () => { S.spec.charts.splice(i, 1); renderCharts(); };
+    const body = document.createElement("div"); card.append(body); grid.append(card);
+    const rows = filtered(c.x);
+    if (!rows.length){ body.innerHTML = `<div class="empty">No rows match the filters.</div>`; return; }
+    try { drawChart(body, c, rows); } catch (err){ console.error(err); body.innerHTML = `<div class="empty">This chart could not be drawn from these columns.</div>`; }
+  });
+}
+function drawChart(body, c, rows){
+  const t = EXPORT ? EXP : tok(), f = c.agg === "count" || c.agg === "distinct" ? "number" : fmtOf(c.y);
+  const d = chartData(c, rows);
+  const sel = S.filters.find(x => x.column === c.x && x.src === "click");
+  if (c.type === "table"){
+    const tot = d.totals.reduce((a,v) => a + (v || 0), 0), mx = Math.max(...d.totals.map(v => v || 0));
+    body.innerHTML = `<div class="tbl-wrap"><table><thead><tr><th>${esc(c.x)}</th><th class="n">${esc(c.y ? `${AGG_LABEL[c.agg]} ${c.y}` : "Rows")}</th>${c.agg === "sum" || c.agg === "count" ? '<th class="n">Share</th>' : ""}</tr></thead><tbody>${
+      d.xs.map((k,i) => `<tr><td>${esc(d.labels[i])}</td><td class="n"><div class="bar-cell"><i style="width:${mx ? Math.round((d.totals[i]||0)/mx*60) : 0}px"></i>${esc(fmtVal(d.totals[i], f))}</div></td>${c.agg === "sum" || c.agg === "count" ? `<td class="n">${tot ? ((d.totals[i]||0)/tot*100).toFixed(1) : 0}%</td>` : ""}</tr>`).join("")}</tbody></table></div>`;
+    body.querySelectorAll("tbody tr").forEach((tr, i) => {
+      tr.style.cursor = "pointer"; tr.title = "Click to filter. Double-click to see the rows behind it.";
+      tr.onclick = () => { if (colOf(c.x).type !== "category") return; clearTimeout(clickT); clickT = setTimeout(() => toggleClick(c.x, d.xs[i]), 260); };
+      tr.ondblclick = () => { clearTimeout(clickT); drillIndex(c, d, i, null); };
+    });
+    return;
+  }
+  const el = document.createElement("div"); el.className = "chart"; body.append(el);
+  const ch = echarts.init(el, null, { renderer: "canvas" }); (EXPORT ? EXPORT.charts : S.charts).push(ch);
+  if (!EXPORT) new ResizeObserver(() => ch.resize()).observe(el);
+  const axisBase = { axisLine: { lineStyle: { color: t.line } }, axisTick: { show: false }, axisLabel: { color: t.ink2, fontSize: 11, hideOverlap: true }, splitLine: { lineStyle: { color: t.line, opacity: .6 } } };
+  const valAxis = { type: "value", ...axisBase, axisLabel: { ...axisBase.axisLabel, formatter: v => fmtVal(v, f, true) } };
+  const catAxis = { type: "category", data: d.labels, ...axisBase, splitLine: { show: false }, axisLabel: { ...axisBase.axisLabel, width: 90, overflow: "truncate", rotate: (c.type === "bar" || c.type === "stacked") && d.labels.length > 7 && !d.grain ? 30 : 0 } };
+  const base = { color: t.pal, textStyle: { fontFamily: "Figtree, system-ui, sans-serif", color: t.ink2 }, animation: !EXPORT, animationDuration: 350,
+    grid: { left: 6, right: 30, top: d.series.length > 1 ? 40 : 16, bottom: 4, containLabel: true },
+    tooltip: { backgroundColor: t.surface, borderColor: t.line, textStyle: { color: t.ink, fontSize: 12 }, confine: true, valueFormatter: v => fmtVal(v, f) },
+    legend: d.series && d.series.length > 1 ? { type: "scroll", top: 0, textStyle: { color: t.ink2, fontSize: 11 }, pageTextStyle: { color: t.ink2 }, itemWidth: 12, itemHeight: 8 } : undefined };
+  const dim = k => sel && !sel.values.includes(k) ? 0.28 : 1;
+  let opt;
+  if (c.type === "scatter"){
+    opt = { ...base, grid: { ...base.grid, top: 16 }, tooltip: { ...base.tooltip, valueFormatter: undefined, formatter: p => `${esc(c.x)}: ${fmtVal(p.value[0], fmtOf(c.x))}<br>${esc(c.y)}: ${fmtVal(p.value[1], fmtOf(c.y))}` },
+      xAxis: { ...valAxis, axisLabel: { ...valAxis.axisLabel, formatter: v => fmtVal(v, fmtOf(c.x), true) }, splitLine: { show: false } }, yAxis: { ...valAxis, axisLabel: { ...valAxis.axisLabel, formatter: v => fmtVal(v, fmtOf(c.y), true) } },
+      series: [{ type: "scatter", data: d.scatter, symbolSize: 6, itemStyle: { opacity: .55 } }] };
+  } else if (c.type === "pie" || c.type === "donut"){
+    opt = { ...base, legend: undefined, tooltip: { ...base.tooltip, trigger: "item", valueFormatter: undefined, formatter: p => `${esc(p.name)}<br><b>${fmtVal(p.value, f)}</b> · ${p.percent}%` },
+      series: [{ type: "pie", radius: c.type === "donut" ? ["48%","72%"] : [0,"72%"], center: ["50%","52%"], avoidLabelOverlap: true, minShowLabelAngle: 5,
+        itemStyle: { borderColor: t.surface, borderWidth: 2 }, label: { color: t.ink2, fontSize: 11, formatter: "{b}\n{d}%" }, labelLine: { lineStyle: { color: t.line } },
+        data: d.labels.map((l, i) => ({ name: l, value: d.series[0].data[i], itemStyle: { opacity: dim(d.xs[i]) } })) }] };
+  } else {
+    const horiz = c.type === "hbar", line = c.type === "line" || c.type === "area";
+    const stacked = c.type === "stacked";
+    const series = d.series.map((s, si) => ({ name: s.name, type: line ? "line" : "bar", stack: stacked ? "s" : undefined,
+      smooth: line ? 0.25 : undefined, showSymbol: line && d.xs.length < 25, symbolSize: 5,
+      areaStyle: c.type === "area" || (stacked && d.grain && false) ? { opacity: d.series.length > 1 ? .08 : .14 } : undefined,
+      lineStyle: line ? { width: 2.2 } : undefined, barMaxWidth: 46,
+      itemStyle: line ? undefined : { borderRadius: stacked ? 0 : horiz ? [0,4,4,0] : [4,4,0,0] },
+      emphasis: { focus: d.series.length > 1 ? "series" : "none" },
+      data: s.data.map((v, i) => line ? v : ({ value: v, itemStyle: { opacity: dim(d.xs[i]) } })) }));
+    if (line && d.series.length === 1){ const last = d.series[0].data.length - 1; series[0].markPoint = { symbol: "circle", symbolSize: 8, data: [{ coord: [last, d.series[0].data[last]], itemStyle: { color: t.pal[0], borderColor: t.surface, borderWidth: 2 } }], label: { show: false } }; }
+    opt = { ...base, tooltip: { ...base.tooltip, trigger: "axis", axisPointer: { type: line ? "line" : "shadow", lineStyle: { color: t.line }, shadowStyle: { color: t.line, opacity: .25 } } },
+      xAxis: horiz ? valAxis : { ...catAxis, boundaryGap: !line }, yAxis: horiz ? { ...catAxis, inverse: true, axisLabel: { ...catAxis.axisLabel, rotate: 0, width: 110 } } : valAxis, series };
+    if (line && d.xs.length > 40) opt.dataZoom = [{ type: "inside" }];
+  }
+  ch.setOption(opt);
+  if (EXPORT) return;
+  // Single click filters the page (delayed so a double-click can cancel it); double-click opens the rows behind the mark.
+  ch.on("click", p => {
+    clearTimeout(clickT);
+    clickT = setTimeout(() => {
+      const xc = colOf(c.x);
+      if (xc.type === "category" && p.name && p.name !== "Other" && c.type !== "scatter"){ const k = d.xs[d.labels.indexOf(p.name)] ?? p.name; toggleClick(c.x, k); }
+      else if (c.series && p.seriesName && p.seriesName !== "Other") toggleClick(c.series, p.seriesName);
+    }, 260);
+  });
+  const lineish = c.type === "line" || c.type === "area";
+  ch.on("dblclick", p => {
+    if (p.componentType !== "series" || p.dataIndex == null) return;
+    clearTimeout(clickT);
+    if (c.type === "scatter"){ lastDrill = Date.now(); const [xv, yv] = p.value || []; openDetail(`${c.x} ${fmtVal(xv, fmtOf(c.x))} · ${c.y} ${fmtVal(yv, fmtOf(c.y))}`, filtered(c.x).filter(r => r[c.x] === xv && r[c.y] === yv), pageConds(c.x), c.title); return; }
+    if (lineish) return;   // lines resolve by position below, so a click anywhere near the point works
+    lastDrill = Date.now(); drillIndex(c, d, p.dataIndex, c.series && p.componentSubType !== "pie" ? p.seriesIndex : null);
+  });
+  if (!["pie", "donut", "scatter"].includes(c.type)) ch.getZr().on("dblclick", e => {
+    setTimeout(() => {
+      if (Date.now() - lastDrill < 400) return;
+      const pt = [e.offsetX, e.offsetY]; if (!ch.containPixel("grid", pt)) return;
+      clearTimeout(clickT);
+      const raw = c.type === "hbar" ? ch.convertFromPixel({ yAxisIndex: 0 }, pt[1]) : ch.convertFromPixel({ xAxisIndex: 0 }, pt[0]);
+      const i = Math.max(0, Math.min(d.xs.length - 1, Math.round(Array.isArray(raw) ? raw[0] : raw)));
+      if (Number.isFinite(i)) drillIndex(c, d, i, null);
+    }, 0);
+  });
+}
+function toggleClick(col, val){
+  let f = S.filters.find(x => x.column === col && x.op === "in");
+  if (f && f.values.length === 1 && f.values[0] === val) S.filters = S.filters.filter(x => x !== f);
+  else { S.filters = S.filters.filter(x => x.column !== col); S.filters.push({ column: col, op: "in", values: [val], src: "click" }); }
+  render();
+}
+function renderData(){
+  const rows = filtered(); const show = rows.slice(0, 300);
+  $("dataHead").innerHTML = `<span>Showing ${show.length.toLocaleString("en-IN")} of ${rows.length.toLocaleString("en-IN")} rows${S.filters.length ? " (filtered)" : ""}.</span><span>Column types are detected automatically.</span>`;
+  const cell = (c, v) => v == null ? "" : c.type === "date" ? new Date(v).toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"}) : c.type === "number" ? v.toLocaleString("en-IN",{maximumFractionDigits:2}) : v;
+  $("dataTbl").innerHTML = `<table><thead><tr>${S.cols.map(c => `<th class="${c.type === "number" ? "n" : ""}">${esc(c.name)}<span class="type">${c.type === "category" ? "text" : c.type}</span></th>`).join("")}</tr></thead><tbody>${
+    show.map(r => `<tr>${S.cols.map(c => `<td class="${c.type === "number" ? "n" : ""}">${esc(cell(c, r[c.name]))}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+}
+
+/* ---------- insights ---------- */
+function localInsights(){
+  const out = []; const rows = filtered();
+  for (const c of S.spec.charts){
+    const xc = colOf(c.x); if (!xc || c.type === "scatter") continue;
+    const d = chartData(c, filtered(c.x)); const f = c.agg === "count" || c.agg === "distinct" ? "number" : fmtOf(c.y);
+    if (xc.type === "date" && !c.series && d.xs.length >= 3 && !out.some(s => s.startsWith("Trend"))){
+      const v = d.series[0].data; let bi = 0; v.forEach((x,i) => { if ((x ?? -Infinity) > (v[bi] ?? -Infinity)) bi = i; });
+      const a = v[v.length-2], b = v[v.length-1];
+      out.push(`Trend: ${c.title.toLowerCase()} peaked in ${d.labels[bi]} at ${fmtVal(v[bi], f)}.` + (a ? ` The latest period (${d.labels[v.length-1]}) is ${b >= a ? "up" : "down"} ${Math.abs((b-a)/a*100).toFixed(0)}% on the one before.` : ""));
+    } else if (xc.type === "category" && d.xs.length >= 2 && (c.agg === "sum" || c.agg === "count") && out.filter(s => s.startsWith("Lead")).length < 2){
+      const tot = d.totals.reduce((a,v) => a + (v||0), 0);
+      out.push(`Leader: ${d.labels[0]} tops ${c.title.toLowerCase()} with ${fmtVal(d.totals[0], f)}${tot ? `, ${((d.totals[0]||0)/tot*100).toFixed(0)}% of the total shown` : ""}.`);
+    }
+    if (out.length >= 3) break;
+  }
+  if (!out.length) out.push(`${rows.length.toLocaleString("en-IN")} rows are in view.`);
+  return out.map(s => s.replace(/^(Trend|Leader): /, "")).map(s => s.charAt(0).toUpperCase() + s.slice(1));
+}
+function showInsights(lines, by){ S.ins = { lines: lines.filter(Boolean), by }; $("insBy").textContent = by; $("insList").innerHTML = lines.filter(Boolean).map(l => `<li>${esc(l)}</li>`).join(""); }
+function insightContext(){
+  const rows = filtered(); const lines = [`Rows in view: ${rows.length}` + (S.filters.length ? ` (filters: ${S.filters.map(f => `${f.column} ${filterText(f)}`).join("; ")})` : "")];
+  for (const k of S.spec.kpis){ const v = aggregate(rows, k.column, k.agg); lines.push(`KPI ${k.label}: ${fmtVal(v, k.agg === "count" || k.agg === "distinct" ? "number" : fmtOf(k.column))}`); }
+  for (const c of S.spec.charts){ if (c.type === "scatter") continue;
+    const d = chartData({ ...c, limit: c.limit || 15 }, filtered(c.x)); const f = c.agg === "count" || c.agg === "distinct" ? "number" : fmtOf(c.y);
+    const ser = d.series.slice(0, 6).map(s => (d.series.length > 1 ? `  [${s.name}] ` : "  ") + d.labels.map((l,i) => `${l}: ${fmtVal(s.data[i], f)}`).slice(-24).join(", "));
+    lines.push(`Chart "${c.title}" (${c.agg} of ${c.y || "rows"} by ${c.x}${c.series ? " and " + c.series : ""}):\n${ser.join("\n")}`); }
+  return lines.join("\n").slice(0, 24000);
+}
+
+/* ---------- Claude ---------- */
+const ERR_COPY = { not_granted: "Claude isn't allowed for this page. I built the dashboard automatically instead.", sampling_disabled: "Claude isn't available on this account, so I built the dashboard automatically.",
+  rate_limited: "Too many requests right now. Wait a minute, then try again.", session_expired: "Your Claude session expired. Sign in again, then retry.", refused: "Claude declined that request. Try rephrasing it.",
+  invalid_json: "Claude's reply couldn't be read as a dashboard. Try again or rephrase.", prompt_too_large: "This file has too many columns to describe. Try a file with fewer columns.", empty_completion: "Claude returned nothing. Try a simpler request.", needs_code: "Enter the access code, then press Build dashboard again." };
+const PERMANENT = ["not_granted","sampling_disabled","not_declared","capability_disabled","capability_removed"];
+const getCode = () => { try { return localStorage.getItem("pds_code") || ""; } catch { return $("accessCode").value; } };
+async function serverAI(){
+  try { const r = await fetch("/api/ask", { method: "GET" }); if (!r.ok) return null; const j = await r.json(); if (!j.ok) return null; if (j.needsCode) $("codeRow").hidden = false; }
+  catch { return null; }
+  const call = async (input, opts = {}) => {
+    let r;
+    try { r = await fetch("/api/ask", { method: "POST", headers: { "content-type": "application/json", "x-access-code": getCode() }, body: JSON.stringify({ prompt: input, tier: opts.modelTier || "default" }), signal: opts.signal }); }
+    catch (e) { throw { code: e?.name === "AbortError" ? "cancelled" : "upstream_error", message: String(e) }; }
+    if (r.status === 401) { $("codeRow").hidden = false; throw { code: "needs_code", message: "access code" }; }
+    if (r.status === 429) throw { code: "rate_limited", message: "429" };
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.text) throw { code: "upstream_error", message: j.error || String(r.status) };
+    opts.onText?.({ text: j.text, delta: j.text });
+    return { text: j.text, truncated: !!j.truncated };
+  };
+  call.json = async (input, opts) => {
+    const { text } = await call(input + "\n\nReply with only the JSON value, no other text.", opts);
+    const t = text.trim(), fence = t.match(/```(?:json)?\s*([\s\S]*?)```/);
+    for (const s of [t, fence && fence[1], t.slice(Math.min(...["{", "["].map(c => t.indexOf(c)).filter(i => i >= 0)), Math.max(t.lastIndexOf("}"), t.lastIndexOf("]")) + 1)]) { if (!s) continue; try { return JSON.parse(s); } catch {} }
+    throw { code: "invalid_json", message: "unparseable", text };
+  };
+  return call;
+}
+const aiReady = (async () => {
+  if (window.claude?.use) { try { S.ai = await window.claude.use("sample"); } catch { S.ai = null; } }
+  else S.ai = await serverAI();
+  setAiPill(S.ai ? "on" : "off"); return S.ai;
+})();
+function setAiPill(st){ $("aiDot").className = "dot " + st; $("aiTxt").textContent = st === "on" ? "AI ready" : "Auto mode (AI off)"; $("aiPill").title = st === "on" ? "Your prompts are turned into dashboards by Claude" : "The AI service isn't set up, so dashboards are built from your columns with simple rules"; }
+function status(msg, kind){ const el = $("status"); el.className = "status" + (kind === "err" ? " err" : ""); el.innerHTML = (kind === "busy" ? '<span class="spin"></span>' : "") + `<span>${esc(msg)}</span>`; }
+
+function specPrompt(req, add){
+  const colLines = S.cols.map(c => {
+    if (c.type === "number") return `- "${c.name}" (number; min ${+c.min.toFixed(2)}, max ${+c.max.toFixed(2)}, total ${+c.sum.toFixed(2)})`;
+    if (c.type === "date") return `- "${c.name}" (date; ${new Date(c.min).toISOString().slice(0,10)} to ${new Date(c.max).toISOString().slice(0,10)})`;
+    const vals = c.card <= 40 ? c.all : c.top.slice(0, 8);
+    return `- "${c.name}" (category; ${c.card} distinct; ${c.card <= 40 ? "all values" : "e.g."} ${vals.map(v => JSON.stringify(v)).join(", ")})`
+      + (c.tagged ? ` [values carry a "(Type) Name" tag; it is split into the Type and Name columns below, prefer those]` : "")
+      + (c.pair ? ` [the kind of record, e.g. Contact or Hospital; the matching names are in "${c.pair}"]` : "");
+  }).join("\n");
+  const sample = S.rows.slice(0, 6).map(r => JSON.stringify(Object.fromEntries(S.cols.map(c => [c.name, c.type === "date" && r[c.name] != null ? new Date(r[c.name]).toISOString().slice(0,10) : r[c.name]])))).join("\n");
+  return `You design business-intelligence dashboards like Power BI. Build a dashboard spec for the user's request using ONLY the columns below. The app computes all numbers itself from the full data; you only choose what to show.
+
+Dataset: ${S.label} (${S.rows.length} rows)
+Columns:
+${colLines}
+
+First rows:
+${sample}
+${add ? `\nThe dashboard already has these charts (do not repeat them; return only NEW charts and KPIs): ${S.spec.charts.map(c => c.title).join("; ")}\n` : ""}
+User request: ${JSON.stringify(req)}
+
+Reply with only JSON in exactly this shape:
+{"title":"Short dashboard title","kpis":[{"label":"Activities","column":null,"agg":"count"},{"label":"Total Revenue","column":"Revenue","agg":"sum"}],"charts":[{"title":"Activities by Employee","type":"hbar","x":"Employee","y":null,"agg":"count","series":null,"timeGrain":null,"limit":15,"sort":"desc","width":"half"}],"filters":[{"column":"Region","op":"in","values":["West"]}],"formats":{"Revenue":"currency"}}
+
+Rules:
+- WHAT TO MEASURE: words like activity, activities, visits, calls, meetings, "how many", "number of" mean COUNT records: agg "count" with y null. Sum or average a number column ONLY when the user names that measure (minutes, duration, hours, amount, revenue, quantity...). Never default to a minutes/duration column.
+- WORDS ARE FILTERS: when the user mentions a word or name that matches a category value listed above, filter on that column. Example: "contact activity" means {"column":"<the Type column>","op":"in","values":["Contact"]}, so hospital rows are excluded. A person or company name ("Rajhev Singh") means a filter on the matching Name column. Use the exact value text with op "in"; use op "contains" with a word for partial matches. Combine several filters when the user names several things.
+- After filtering a column to one value, do not chart that column; group by a more useful one instead (after Type = Contact, chart by the Name column, by employee, by activity type, over time).
+- Use exact column names from the list. "x" must be a date or category column (or a number column only for "scatter").
+- type: bar (vertical columns), hbar (ranked horizontal bars, good for long names / top N), line, area, stacked (needs "series", a category column), pie, donut (8 or fewer slices, share of total), scatter (x and y both numbers), table.
+- agg: sum, avg, count, min, max, distinct. "y" must be a number column, except count (y may be null = count rows) and distinct (count distinct values of y).
+- For trends over time use a date x with line/area/stacked and set timeGrain to day, week, month, quarter or year.
+- 2 to 4 KPIs and 3 to 6 charts${add ? " (fewer is fine when adding)" : ""}. Put the chart that most directly answers the request first. Use width "full" for time trends and tables.
+- Add filters only when the request names a subset (a type, a person, a region, a product, a date range). op is in (exact values list), contains (list of words; matches any), gt or lt (value), or between (values [from, to]); dates as YYYY-MM-DD.
+- formats: mark money columns "currency" (rupees), percentage columns "percent". Omit others.
+- If the request asks for something the columns cannot show, build the closest useful dashboard.`;
+}
+
+async function generate(){
+  const req = $("prompt").value.trim(); if (!req) { $("prompt").focus(); return; }
+  if (S.busy){ S.busy.abort(); return; }
+  const add = $("addMode").checked; const pageAt = S.cur;
+  const ctl = new AbortController(); S.busy = ctl; setBusy(true);
+  status("AI is designing your dashboard…", "busy");
+  const ai = await aiReady; let spec = null, note = "";
+  if (ai){
+    try { spec = await ai.json(specPrompt(req, add), { signal: ctl.signal, modelTier: "default", effort: "low" }); }
+    catch (e){
+      if (e?.code === "cancelled"){ status("Stopped."); finish(); return; }
+      if (PERMANENT.includes(e?.code)){ S.ai = null; setAiPill("off"); note = ERR_COPY[e.code] || "Claude isn't available here, so I built the dashboard automatically."; }
+      else { status(ERR_COPY[e?.code] || "Couldn't reach Claude. Check your connection and try again.", "err"); finish(); return; }
+    }
+  } else note = "AI isn't set up on this site yet, so the dashboard was built automatically from your columns.";
+  if (!spec || typeof spec !== "object") spec = autoSpec(req);
+  if (S.cur !== pageAt && S.pages[pageAt]) openPage(pageAt);
+  const clean = sanitize(spec);
+  if (add && S.spec){ S.spec.charts.push(...clean.charts); for (const k of clean.kpis) if (!S.spec.kpis.some(x => x.column === k.column && x.agg === k.agg) && S.spec.kpis.length < 6) S.spec.kpis.push(k); S.spec.formats = { ...S.spec.formats, ...clean.formats }; }
+  else S.spec = clean;
+  if (clean.formats) for (const [k,v] of Object.entries(spec.formats || {})){ const c = resolveCol(k); if (c && ["currency","percent","number"].includes(v)) S.spec.formats[c] = v; }
+  S.filters = S.filters.filter(f => f.src !== "ai").concat(clean.filters);
+  showTab("dash"); render(); renderPages();
+  showInsights(localInsights(), "Calculated from the charts");
+  if (!S.ai){ status(note || "Dashboard ready."); finish(); return; }
+  status("Writing insights…", "busy");
+  try {
+    const p = `You are a sharp business analyst. The user asked for: ${JSON.stringify(req)}\nBelow are figures computed from their data (₹ amounts use Indian units: L = lakh, Cr = crore).\n\n${insightContext()}\n\nWrite 3 or 4 short insights, one per line, plain text, no bullets, no markdown, max 30 words each. If the user asked a question, the first line answers it directly. Use only the numbers given; never invent figures. Point out the biggest driver, any notable trend or outlier, and one practical suggestion.`;
+    await ai(p, { signal: ctl.signal, modelTier: "quick", onText: ({ text }) => putIns(pageAt, text.split("\n").map(s => s.replace(/^[\s\-•*\d.)]+/, "").trim()), "Written by Claude from the numbers shown") });
+    status(note || "Dashboard ready. Click a bar or slice to filter.");
+  } catch (e){
+    if (e?.code === "cancelled") status("Dashboard ready. Insights stopped.");
+    else status("Dashboard ready. Insights couldn't be written this time.");
+  }
+  finish();
+  function finish(){ S.busy = null; setBusy(false); }
+}
+function setBusy(b){ const g = $("goBtn"); g.textContent = b ? "Stop" : "Build dashboard"; }
+
+/* ---------- data loading ---------- */
+function setData(rows, cols, label){
+  S.rows = rows; S.cols = cols; S.label = label; S.filters = []; computeStats();
+  S.spec = sanitize(autoSpec("")); S.spec.title = `${label.replace(/\.[^.]+$/, "")} overview`;
+  render(); showInsights(localInsights(), "Calculated from the charts"); initPages(); makeChips();
+}
+function makeChips(){
+  const nums = S.cols.filter(c => c.type === "number"), cats = S.cols.filter(c => c.type === "category" && c.card >= 2 && c.card <= 60).sort((a,b) => a.card - b.card), date = S.cols.find(c => c.type === "date");
+  const m = (nums.find(c => MONEY_RE.test(c.name)) || nums[0])?.name, m2 = nums.find(c => c.name !== m)?.name;
+  const ch = [];
+  if (S.label.startsWith("Sample")) ch.push("Which region made the most profit?", "Monthly revenue trend by category", "Top 10 products by units sold", "Profit by customer type in the West region");
+  else {
+    const noun = nounFor("").toLowerCase();
+    const typeCol = S.cols.find(c => c.pair);
+    if (typeCol) for (const v of typeCol.top.filter(x => x !== "(none)").slice(0, 2)) ch.push(`${v} ${noun} by name`);
+    const who = S.cols.filter(c => c.type === "category" && !c.tagged && !c.pair && c.card > 2 && c.card <= 200).sort((a, b) => a.card - b.card)[0];
+    if (who) ch.push(`Which ${who.name} has the most ${noun}?`);
+    if (date) ch.push(`${noun[0].toUpperCase() + noun.slice(1)} trend by month`);
+    const mm = nums.find(c => MONEY_RE.test(c.name) || /min|duration|hour/i.test(c.name));
+    if (mm && cats[0]) ch.push(`Total ${mm.name} by ${cats[0].name}`);
+    if (!ch.length) ch.push("Give me an overview of this data");
+  }
+  $("chips").innerHTML = ch.map(c => `<button class="chip">${esc(c)}</button>`).join("");
+  $("chips").querySelectorAll(".chip").forEach(b => b.onclick = () => { $("prompt").value = b.textContent; generate(); });
+}
+async function loadFile(file){
+  if (!file) return;
+  if (typeof XLSX === "undefined"){ status("The spreadsheet reader didn't load. Reload the page and try again.", "err"); return; }
+  status(`Reading ${file.name}…`, "busy");
+  try {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: "array", cellDates: true });
+    S.wb = wb; S.fileName = file.name;
+    const sheets = wb.SheetNames.filter(n => { const ws = wb.Sheets[n]; return ws && ws["!ref"]; });
+    const sel = $("sheetSel");
+    sel.hidden = sheets.length < 2; sel.innerHTML = sheets.map(n => `<option>${esc(n)}</option>`).join("");
+    loadSheet(sheets[0]);
+  } catch (e){ console.error(e); status(`Couldn't read ${file.name}. Save it as .xlsx or .csv and try again.`, "err"); }
+}
+function loadSheet(name){
+  const raw = XLSX.utils.sheet_to_json(S.wb.Sheets[name], { defval: null, raw: true });
+  if (!raw.length){ status(`The sheet “${name}” has no rows under a header row.`, "err"); return; }
+  const { rows, cols } = inferAndCoerce(raw.slice(0, 300000));
+  if (!cols.length){ status("No usable columns were found. Make sure the first row holds column names.", "err"); return; }
+  const label = S.wb.SheetNames.length > 1 ? `${S.fileName} · ${name}` : S.fileName;
+  setData(rows, cols, label);
+  status(`Loaded ${rows.length.toLocaleString("en-IN")} rows. Describe the dashboard you want above, or use the starter one below.`);
+  $("prompt").focus();
+}
+
+/* ---------- wiring ---------- */
+function showTab(t){ $("tabDash").setAttribute("aria-selected", t === "dash"); $("tabData").setAttribute("aria-selected", t === "data"); $("dashView").hidden = t !== "dash"; $("dataView").hidden = t !== "data"; if (t === "data") renderData(); else S.charts.forEach(c => c.resize()); }
+$("tabDash").onclick = () => showTab("dash"); $("tabData").onclick = () => showTab("data");
+$("goBtn").onclick = generate;
+$("prompt").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey){ e.preventDefault(); generate(); } });
+$("file").onchange = e => { loadFile(e.target.files[0]); e.target.value = ""; };
+$("sheetSel").onchange = e => loadSheet(e.target.value);
+let dragN = 0;
+addEventListener("dragenter", e => { if ([...(e.dataTransfer?.types || [])].includes("Files")){ dragN++; $("drop").hidden = false; } });
+addEventListener("dragleave", () => { if (--dragN <= 0){ dragN = 0; $("drop").hidden = true; } });
+addEventListener("dragover", e => e.preventDefault());
+addEventListener("drop", e => { e.preventDefault(); dragN = 0; $("drop").hidden = true; loadFile(e.dataTransfer?.files?.[0]); });
+const rerender = () => { if (S.spec) { renderKpis(); renderCharts(); } };
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", rerender);
+new MutationObserver(rerender).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+/* ---------- pages ---------- */
+function savePage(){ const p = S.pages[S.cur]; if (p){ p.spec = S.spec; p.filters = S.filters; p.ins = S.ins; } }
+function openPage(i){
+  if (!S.pages[i]) return;
+  savePage(); S.cur = i; const p = S.pages[i]; S.spec = p.spec; S.filters = p.filters;
+  render(); showInsights(p.ins.lines, p.ins.by); renderPages();
+}
+function initPages(){ S.pages = [{ spec: S.spec, filters: S.filters, ins: S.ins }]; S.cur = 0; renderPages(); }
+function putIns(i, lines, by){ if (S.cur === i) showInsights(lines, by); else if (S.pages[i]) S.pages[i].ins = { lines: lines.filter(Boolean), by }; }
+function newPage(){
+  if (S.busy){ status("Wait for the current dashboard to finish, then add a page."); return; }
+  savePage();
+  S.pages.push({ spec: { title: `Page ${S.pages.length + 1}`, kpis: [], charts: [], filters: [], formats: { ...(S.spec?.formats || {}) } }, filters: [],
+    ins: { lines: ["Describe what this page should show in the box above, then press Build dashboard."], by: "Empty page" } });
+  openPage(S.pages.length - 1);
+  $("addMode").checked = false; $("prompt").value = ""; $("prompt").focus();
+  status(`Added ${S.spec.title}. Describe what it should show.`);
+}
+function deletePage(i){
+  if (S.pages.length < 2) return;
+  if (S.busy){ status("Wait for the current dashboard to finish, then delete the page."); return; }
+  savePage(); const [p] = S.pages.splice(i, 1);
+  const next = i < S.cur ? S.cur - 1 : Math.min(S.cur === i ? i : S.cur, S.pages.length - 1);
+  S.cur = -1; openPage(next);
+  status(`Deleted “${p.spec.title}”.`);
+  const u = document.createElement("button"); u.className = "clear"; u.textContent = "Undo";
+  u.onclick = () => { savePage(); S.pages.splice(i, 0, p); S.cur = -1; openPage(i); status(`Restored “${p.spec.title}”.`); };
+  $("status").append(u);
+}
+function renderPages(){
+  const box = $("pages"); box.innerHTML = "";
+  S.pages.forEach((p, i) => {
+    const title = i === S.cur ? S.spec.title : p.spec.title;
+    const w = document.createElement("div"); w.className = "page" + (i === S.cur ? " on" : "");
+    const b = document.createElement("button"); b.className = "page-b"; b.textContent = title; b.title = title;
+    if (i === S.cur) b.setAttribute("aria-current", "page");
+    b.onclick = () => { if (i !== S.cur) openPage(i); };
+    w.append(b);
+    if (S.pages.length > 1){ const x = document.createElement("button"); x.className = "page-x"; x.textContent = "×"; x.title = "Delete page"; x.setAttribute("aria-label", `Delete page ${title}`); x.onclick = () => deletePage(i); w.append(x); }
+    box.append(w);
+  });
+  const add = document.createElement("button"); add.className = "page-add"; add.textContent = "+ New page"; add.onclick = newPage; box.append(add);
+}
+$("dashTitle").addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); e.target.blur(); } });
+$("dashTitle").addEventListener("blur", e => { const t = e.target.textContent.replace(/\s+/g, " ").trim().slice(0, 90); S.spec.title = t || "Untitled page"; e.target.textContent = S.spec.title; renderPages(); });
+
+/* ---------- downloads ---------- */
+let EXPORT = null;
+const EXP = { ink: "#14201f", ink2: "#4f5e5c", ink3: "#7c8a88", line: "#d6dedc", surface: "#ffffff", accent: "#0d7a72", soft: "#eef3f2", pal: ["#0d7a72","#cf8418","#5753c4","#c2446d","#4c8c36","#2b7cc0","#8a6a50"] };
+const browserSave = { save: async ({ filename, data }) => { const blob = data instanceof Blob ? data : new Blob([data]); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = filename; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000); return { status: "saved" }; } };
+const dlReady = (async () => { if (!window.claude?.use) return browserSave; try { return await window.claude.use("downloads"); } catch { return null; } })();
+const slug = s => String(s).replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "dashboard";
+const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+const metaText = c => `${c.y ? `${AGG_LABEL[c.agg]} of ${c.y}` : "Number of rows"} by ${c.x}${c.series ? ` and ${c.series}` : ""}`;
+function fit(ctx, s, max){ if (ctx.measureText(s).width <= max) return s; let lo = 0, hi = s.length; while (lo < hi){ const mid = (lo + hi + 1) >> 1; if (ctx.measureText(s.slice(0, mid) + "…").width <= max) lo = mid; else hi = mid - 1; } return s.slice(0, lo) + "…"; }
+function wrapText(ctx, s, max){ const out = []; let cur = ""; for (const w of String(s).split(/\s+/)){ const t = cur ? cur + " " + w : w; if (ctx.measureText(t).width > max && cur){ out.push(cur); cur = w; } else cur = t; } if (cur) out.push(cur); return out; }
+
+/* Snapshot one page: numbers + chart images, drawn in the light print palette. Synchronous, so page state is swapped and restored safely. */
+function capturePage(i){
+  savePage();
+  const keep = { spec: S.spec, filters: S.filters }, p = S.pages[i];
+  S.spec = p.spec; S.filters = p.filters;
+  const host = document.createElement("div"); host.className = "export-host"; document.body.append(host);
+  EXPORT = { charts: [] };
+  try {
+    const rows = filtered();
+    const out = { title: p.spec.title, kpis: [], cards: [], ins: p.ins,
+      sub: `${S.label} · ${rows.length.toLocaleString("en-IN")} of ${S.rows.length.toLocaleString("en-IN")} rows` + (p.filters.length ? ` · Filters: ${p.filters.map(f => `${f.column}: ${filterText(f)}`).join("; ")}` : "") };
+    for (const k of p.spec.kpis) out.kpis.push({ label: k.label, val: fmtVal(aggregate(rows, k.column, k.agg), k.agg === "count" || k.agg === "distinct" ? "number" : fmtOf(k.column)) });
+    for (const c of p.spec.charts){
+      const card = { title: c.title, meta: metaText(c), full: c.width === "full" }; const cr = filtered(c.x);
+      try {
+        if (!cr.length) card.kind = "empty";
+        else if (c.type === "table"){
+          const d = chartData(c, cr), f = c.agg === "count" || c.agg === "distinct" ? "number" : fmtOf(c.y);
+          Object.assign(card, { kind: "table", head: [c.x, c.y ? `${AGG_LABEL[c.agg]} ${c.y}` : "Rows"], rows: d.xs.slice(0, 14).map((k, j) => [d.labels[j], fmtVal(d.totals[j], f)]), more: d.xs.length - 14 });
+        } else {
+          const body = document.createElement("div"); body.style.width = (card.full ? 1312 : 636) + "px"; host.append(body);
+          drawChart(body, c, cr);
+          card.kind = "img"; card.url = EXPORT.charts[EXPORT.charts.length - 1].getDataURL({ type: "png", pixelRatio: 2, backgroundColor: EXP.surface });
+        }
+      } catch (err){ console.error(err); card.kind = "error"; }
+      out.cards.push(card);
+    }
+    return out;
+  } finally {
+    for (const ch of EXPORT.charts) ch.dispose(); EXPORT = null; host.remove();
+    S.spec = keep.spec; S.filters = keep.filters;
+  }
+}
+async function pageCanvas(cap){
+  try { await document.fonts?.ready; } catch {}
+  const W = 1400, P = 32, G = 16, R = 2, T = EXP, inner = W - 2*P, half = (inner - G)/2;
+  const FD = '"Bricolage Grotesque", Figtree, system-ui, sans-serif', FB = 'Figtree, system-ui, sans-serif', FM = '"JetBrains Mono", ui-monospace, monospace';
+  const imgs = await Promise.all(cap.cards.map(c => c.kind === "img" ? loadImg(c.url).catch(() => null) : null));
+  const rowsL = []; let pend = null;
+  cap.cards.forEach((c, i) => { const it = { c, img: imgs[i] }; if (c.full){ if (pend){ rowsL.push([pend]); pend = null; } rowsL.push([it]); } else if (pend){ rowsL.push([pend, it]); pend = null; } else pend = it; });
+  if (pend) rowsL.push([pend]);
+  const cardH = c => 54 + (c.kind === "img" ? 300 : c.kind === "table" ? 30 + c.rows.length*26 + (c.more > 0 ? 24 : 0) : 56) + 12;
+  const m = document.createElement("canvas").getContext("2d"); m.font = `400 14px ${FB}`;
+  const insLines = (cap.ins?.lines || []).flatMap(l => wrapText(m, l, inner - 60).map((s, j) => ({ s, first: j === 0 })));
+  let H = P + 34 + 40;
+  if (cap.kpis.length) H += 84 + G;
+  if (!cap.cards.length) H += 80 + G;
+  for (const r of rowsL) H += Math.max(...r.map(it => cardH(it.c))) + G;
+  if (insLines.length) H += 58 + insLines.length*21 + G;
+  H = Math.ceil(H + 20 + P);
+  const cv = document.createElement("canvas"); cv.width = W*R; cv.height = H*R;
+  const x = cv.getContext("2d"); x.scale(R, R);
+  x.fillStyle = T.soft; x.fillRect(0, 0, W, H);
+  const box = (bx, by, bw, bh) => { x.fillStyle = T.surface; x.strokeStyle = T.line; x.lineWidth = 1; x.beginPath(); if (x.roundRect) x.roundRect(bx + .5, by + .5, bw - 1, bh - 1, 10); else x.rect(bx + .5, by + .5, bw - 1, bh - 1); x.fill(); x.stroke(); };
+  const txt = (s, tx, ty, font, color, max, align) => { x.font = font; x.fillStyle = color; x.textAlign = align || "left"; x.textBaseline = "alphabetic"; x.fillText(max ? fit(x, String(s), max) : String(s), tx, ty); };
+  let y = P;
+  txt(cap.title, P, y + 26, `700 28px ${FD}`, T.ink, inner); y += 34;
+  txt(cap.sub, P, y + 16, `400 13px ${FB}`, T.ink3, inner); y += 40;
+  if (cap.kpis.length){
+    const n = cap.kpis.length, kw = (inner - G*(n - 1))/n;
+    cap.kpis.forEach((k, i) => { const kx = P + i*(kw + G); box(kx, y, kw, 84); txt(k.label.toUpperCase(), kx + 16, y + 28, `600 11px ${FB}`, T.ink3, kw - 32); txt(k.val, kx + 16, y + 64, `600 26px ${FM}`, T.ink, kw - 32); });
+    y += 84 + G;
+  }
+  if (!cap.cards.length){ box(P, y, inner, 80); txt("This page has no charts yet.", P + 20, y + 46, `400 14px ${FB}`, T.ink3); y += 80 + G; }
+  for (const r of rowsL){
+    const rh = Math.max(...r.map(it => cardH(it.c)));
+    r.forEach((it, j) => {
+      const c = it.c, cw = c.full ? inner : half, cx = P + j*(half + G), by = y + 54, iw = cw - 24;
+      box(cx, y, cw, rh);
+      txt(c.title, cx + 16, y + 26, `700 15px ${FB}`, T.ink, cw - 32);
+      txt(c.meta, cx + 16, y + 44, `400 12px ${FB}`, T.ink3, cw - 32);
+      if (c.kind === "img" && it.img) x.drawImage(it.img, cx + 12, by, iw, 300);
+      else if (c.kind === "table"){
+        x.fillStyle = T.soft; x.fillRect(cx + 12, by, iw, 28);
+        txt(c.head[0], cx + 22, by + 19, `600 12px ${FB}`, T.ink2, iw - 200);
+        txt(c.head[1], cx + 2 + iw, by + 19, `600 12px ${FB}`, T.ink2, 200, "right");
+        c.rows.forEach((rw, k) => { const ry = by + 28 + k*26; txt(rw[0], cx + 22, ry + 18, `400 13px ${FB}`, T.ink, iw - 200); txt(rw[1], cx + 2 + iw, ry + 18, `400 13px ${FM}`, T.ink, 200, "right"); x.fillStyle = T.line; x.fillRect(cx + 12, ry + 25, iw, 1); });
+        if (c.more > 0) txt(`+ ${c.more} more rows in the Excel download`, cx + 22, by + 46 + c.rows.length*26, `400 12px ${FB}`, T.ink3);
+      } else txt(c.kind === "empty" ? "No rows match the filters." : "This chart could not be drawn.", cx + 16, by + 34, `400 13px ${FB}`, T.ink3);
+    });
+    y += rh + G;
+  }
+  if (insLines.length){
+    const ih = 58 + insLines.length*21; box(P, y, inner, ih);
+    txt("Insights", P + 20, y + 30, `700 17px ${FD}`, T.ink);
+    insLines.forEach((l, k) => { const ly = y + 44 + k*21; if (l.first){ x.fillStyle = T.accent; x.fillRect(P + 20, ly + 3, 3, 15); } txt(l.s, P + 34, ly + 16, `400 14px ${FB}`, T.ink2); });
+    y += ih + G;
+  }
+  txt(`Prompt Dashboard Studio · Developed by RK (kondekarritesh33@gmail.com) · ${new Date().toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" })}`, P, y + 12, `400 11px ${FB}`, T.ink3);
+  return cv;
+}
+async function buildPdf(idxs){
+  const { jsPDF } = window.jspdf; let doc;
+  for (const i of idxs){
+    const cv = await pageCanvas(capturePage(i)); const w = cv.width/2, h = cv.height/2, o = w > h ? "landscape" : "portrait";
+    if (!doc) doc = new jsPDF({ orientation: o, unit: "px", format: [w, h], hotfixes: ["px_scaling"], compress: true }); else doc.addPage([w, h], o);
+    doc.addImage(cv.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, w, h);
+  }
+  return doc.output("blob");
+}
+function buildXlsx(){
+  savePage();
+  const wb = XLSX.utils.book_new(), used = new Set();
+  const nm = s => { const b = String(s).replace(/[\[\]:*?\/\\]/g, " ").replace(/\s+/g, " ").trim().slice(0, 28) || "Sheet"; let n = b, k = 2; while (used.has(n.toLowerCase())) n = `${b.slice(0, 25)} ${k++}`; used.add(n.toLowerCase()); return n; };
+  const sumName = nm("Summary"), dataName = nm("Data"), sheets = [];
+  const keep = { spec: S.spec, filters: S.filters };
+  const sum = [["Page", "KPI", "Value", "Filters"]];
+  try {
+    S.pages.forEach((p, i) => {
+      S.spec = p.spec; S.filters = p.filters; const rows = filtered(); const ft = p.filters.map(f => `${f.column}: ${filterText(f)}`).join("; ");
+      for (const k of p.spec.kpis) sum.push([p.spec.title, k.label, aggregate(rows, k.column, k.agg), ft]);
+      for (const c of p.spec.charts){
+        const cr = filtered(c.x); if (!cr.length) continue;
+        let aoa;
+        if (c.type === "scatter") aoa = [[c.x, c.y], ...chartData(c, cr).scatter];
+        else { const d = chartData(c, cr); aoa = [[c.x, ...d.series.map(s => s.name)], ...d.labels.map((l, j) => [l, ...d.series.map(s => s.data[j])])]; }
+        const ws = XLSX.utils.aoa_to_sheet([[c.title], [metaText(c) + (ft ? ` · Filters: ${ft}` : "")], [], ...aoa]);
+        ws["!cols"] = [{ wch: 28 }, ...aoa[0].slice(1).map(() => ({ wch: 16 }))];
+        sheets.push([nm(`P${i + 1} ${c.title}`), ws]);
+      }
+    });
+  } finally { S.spec = keep.spec; S.filters = keep.filters; }
+  const s1 = XLSX.utils.aoa_to_sheet(sum); s1["!cols"] = [{ wch: 32 }, { wch: 26 }, { wch: 16 }, { wch: 40 }];
+  XLSX.utils.book_append_sheet(wb, s1, sumName);
+  for (const [n, ws] of sheets) XLSX.utils.book_append_sheet(wb, ws, n);
+  XLSX.utils.book_append_sheet(wb, sheetFromRows(S.rows), dataName);
+  return XLSX.write(wb, { bookType: "xlsx", type: "array", cellDates: true });
+}
+async function doDownload(kind){
+  closeMenu();
+  if (S.exporting) return;
+  const dl = await dlReady;
+  if (!dl){ status("Downloads aren't available in this view.", "err"); return; }
+  if (typeof XLSX === "undefined" || (kind !== "xlsx" && typeof echarts === "undefined") || (kind.startsWith("pdf") && !window.jspdf)){ status("The export tools didn't load. Reload the page and try again.", "err"); return; }
+  S.exporting = true; savePage();
+  const day = new Date().toISOString().slice(0, 10);
+  const name = (kind === "pdf-all" || kind === "xlsx") && S.pages.length > 1 ? `${S.label.replace(/^Sample: /, "").replace(/\.[^.]+$/, "")} dashboards` : S.spec.title;
+  const base = `${slug(name)} ${day}`;
+  try {
+    let data, filename, what;
+    if (kind === "pdf-all"){ status(`Preparing a PDF of ${S.pages.length} page${S.pages.length > 1 ? "s" : ""}…`, "busy"); data = await buildPdf(S.pages.map((_, i) => i)); filename = base + ".pdf"; what = "PDF"; }
+    else if (kind === "pdf-one"){ status("Preparing the PDF…", "busy"); data = await buildPdf([S.cur]); filename = base + ".pdf"; what = "PDF"; }
+    else if (kind === "png"){ status("Preparing the image…", "busy"); const cv = await pageCanvas(capturePage(S.cur)); data = await new Promise(r => cv.toBlob(r, "image/png")); filename = base + ".png"; what = "Image"; }
+    else { status("Preparing the Excel workbook…", "busy"); data = buildXlsx(); filename = base + ".xlsx"; what = "Excel workbook"; }
+    if (window.claude) status("Confirm the download in the dialog.", "busy");
+    await dl.save({ filename, data });
+    status(`${what} saved: ${filename}`);
+  } catch (e){
+    const c = e?.code; if (!c) console.error(e);
+    status(c === "declined" ? "Download cancelled." : c === "rate_limited" ? "Another download is waiting for your answer. Finish that one first." : c === "too_large" ? "The file is too large. Try downloading one page at a time." :
+      ["unavailable","not_granted","capability_disabled","capability_removed","extension_not_enabled"].includes(c) ? "Downloads aren't available in this view." : "Couldn't create the file. Try again.", c === "declined" ? "" : "err");
+  } finally { S.exporting = false; }
+}
+/* ---------- drill-through details ---------- */
+let clickT = null, lastDrill = 0;
+const DT = { rows: [], view: [], q: "", sort: null, shown: 200, title: "", conds: [], src: "" };
+const keyOf = v => v == null ? "(blank)" : String(v);
+function cellText(c, v){
+  if (v == null) return "";
+  if (c.type === "date") return new Date(v).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  if (c.type === "number") return v.toLocaleString("en-IN", { maximumFractionDigits: 2 });
+  return String(v);
+}
+// Dates go into Excel as serial numbers built from the calendar date, with a date format, so no time-zone hours creep in.
+function xlDate(t){ const d = new Date(t); return (Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds()) - Date.UTC(1899, 11, 30)) / 864e5; }
+function sheetFromRows(rows){
+  const aoa = [S.cols.map(c => c.name), ...rows.map(r => S.cols.map(c => r[c.name] == null ? null : c.type === "date" ? xlDate(r[c.name]) : r[c.name]))];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  S.cols.forEach((c, j) => { if (c.type !== "date") return; for (let i = 1; i <= rows.length; i++){ const cell = ws[XLSX.utils.encode_cell({ r: i, c: j })]; if (cell) cell.z = "dd-mmm-yyyy"; } });
+  ws["!cols"] = S.cols.map(c => ({ wch: Math.min(40, Math.max(12, c.name.length + 2)) }));
+  return ws;
+}
+function pageConds(exceptX){ return S.filters.filter(f => !(exceptX && f.column === exceptX && f.src === "click")).map(f => `${f.column}: ${filterText(f)}`); }
+function drillIndex(c, d, xi, si){
+  const key = d.xs[xi]; if (key == null) return;
+  const xc = colOf(c.x); let rows = filtered(c.x); const conds = pageConds(c.x);
+  if (key === "Other" && d.xs.includes("Other")){ const shown = new Set(d.xs.filter(k => k !== "Other")); rows = rows.filter(r => !shown.has(keyOf(r[c.x]))); conds.push(`${c.x}: all other values`); }
+  else if (xc.type === "date"){ rows = rows.filter(r => r[c.x] != null && bucket(r[c.x], d.grain) === key); conds.push(`${c.x}: ${d.labels[xi]}`); }
+  else { rows = rows.filter(r => keyOf(r[c.x]) === key); conds.push(`${c.x}: ${key}`); }
+  const s = si != null ? d.series[si] : null;
+  if (c.series && s){
+    if (s.key === null){ const top = new Set(d.series.filter(x => x.key !== null).map(x => x.key)); rows = rows.filter(r => !top.has(keyOf(r[c.series]))); conds.push(`${c.series}: all other values`); }
+    else { rows = rows.filter(r => keyOf(r[c.series]) === s.key); conds.push(`${c.series}: ${s.key}`); }
+  }
+  openDetail(d.labels[xi] + (c.series && s ? ` · ${s.name}` : ""), rows, conds, `${c.title} · ${metaText(c)}`);
+}
+function openDetail(title, rows, conds, src){
+  Object.assign(DT, { rows, title, conds, src, q: "", sort: null, shown: 200 });
+  $("dtQ").value = ""; $("dtMsg").textContent = ""; $("dtMsg").className = "dt-msg";
+  $("dtTitle").textContent = title; $("dtSrc").textContent = src;
+  $("dtConds").innerHTML = conds.map(t => `<span class="fchip" style="padding-right:10px">${esc(t)}</span>`).join("");
+  dtRender(); $("dt").hidden = false; document.body.style.overflow = "hidden"; $("dtClose").focus();
+}
+function closeDetail(){ if ($("dt").hidden) return; $("dt").hidden = true; document.body.style.overflow = ""; }
+function dtView(){
+  let v = DT.rows; const q = DT.q.trim().toLowerCase();
+  if (q) v = v.filter(r => S.cols.some(c => r[c.name] != null && cellText(c, r[c.name]).toLowerCase().includes(q)));
+  if (DT.sort){ const { col, dir } = DT.sort, c = colOf(col);
+    v = v.slice().sort((a, b) => { const x = a[col], y = b[col]; if (x == null) return y == null ? 0 : 1; if (y == null) return -1; return (c.type === "category" ? String(x).localeCompare(String(y), undefined, { numeric: true }) : x - y) * dir; }); }
+  return v;
+}
+function dtRender(){
+  const v = DT.view = dtView();
+  $("dtCount").textContent = `${v.length.toLocaleString("en-IN")} row${v.length === 1 ? "" : "s"}` + (DT.q ? ` of ${DT.rows.length.toLocaleString("en-IN")}` : "");
+  const nums = S.cols.filter(c => c.type === "number").slice(0, 4);
+  $("dtSum").innerHTML = `<div><span>Rows</span><b>${v.length.toLocaleString("en-IN")}</b></div>` + nums.map(c => `<div><span>Total ${esc(c.name)}</span><b>${esc(fmtVal(aggregate(v, c.name, "sum"), fmtOf(c.name)))}</b></div>`).join("");
+  const arrow = n => DT.sort?.col === n ? (DT.sort.dir > 0 ? " ▲" : " ▼") : "";
+  const show = v.slice(0, DT.shown);
+  $("dtTbl").innerHTML = `<table><thead><tr><th class="n">#</th>${S.cols.map(c => `<th class="${c.type === "number" ? "n" : ""}"><button class="sort" data-c="${esc(c.name)}" title="Sort by ${esc(c.name)}">${esc(c.name)}${arrow(c.name)}</button></th>`).join("")}</tr></thead><tbody>${
+    show.map((r, i) => `<tr><td class="n">${i + 1}</td>${S.cols.map(c => `<td class="${c.type === "number" ? "n" : ""}">${esc(cellText(c, r[c.name]))}</td>`).join("")}</tr>`).join("")}</tbody></table>` +
+    (v.length > DT.shown ? `<div class="dt-more"><button class="btn" id="dtMore">Show ${Math.min(500, v.length - DT.shown).toLocaleString("en-IN")} more · ${(v.length - DT.shown).toLocaleString("en-IN")} not shown</button></div>` : "") +
+    (!v.length ? `<div class="empty">${DT.q ? `No rows match “${esc(DT.q)}”.` : "No rows here."}</div>` : "");
+  $("dtTbl").querySelectorAll(".sort").forEach(b => b.onclick = () => { const n = b.dataset.c; DT.sort = DT.sort?.col === n ? (DT.sort.dir > 0 ? { col: n, dir: -1 } : null) : { col: n, dir: 1 }; dtRender(); });
+  $("dtMore")?.addEventListener("click", () => { DT.shown += 500; dtRender(); });
+  $("dtXlsx").textContent = `Download Excel (${v.length.toLocaleString("en-IN")} rows)`;
+  $("dtXlsx").disabled = $("dtCsv").disabled = !v.length;
+}
+function dtMsg(t, err){ $("dtMsg").textContent = t; $("dtMsg").className = "dt-msg" + (err ? " err" : ""); }
+async function dtDownload(kind){
+  const v = DT.view; if (!v.length) return;
+  const dl = await dlReady; if (!dl){ dtMsg("Downloads aren't available in this view.", true); return; }
+  if (typeof XLSX === "undefined"){ dtMsg("The spreadsheet tools didn't load. Reload the page and try again.", true); return; }
+  const base = `${slug(DT.title)} details ${new Date().toISOString().slice(0, 10)}`;
+  const iso = t => { const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+  let data, filename;
+  if (kind === "csv"){
+    const aoa = [S.cols.map(c => c.name), ...v.map(r => S.cols.map(c => r[c.name] == null ? "" : c.type === "date" ? iso(r[c.name]) : r[c.name]))];
+    data = "﻿" + XLSX.utils.sheet_to_csv(XLSX.utils.aoa_to_sheet(aoa)); filename = base + ".csv";
+  } else {
+    const ws = sheetFromRows(v);
+    const about = XLSX.utils.aoa_to_sheet([["Details for", DT.title], ["From", DT.src], ["Rows", v.length], ...DT.conds.map(t => ["Condition", t]), ...(DT.q ? [["Search", DT.q]] : []), ["Source file", S.label], ["Exported", new Date().toLocaleString("en-IN")]]);
+    about["!cols"] = [{ wch: 14 }, { wch: 70 }];
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Details"); XLSX.utils.book_append_sheet(wb, about, "About");
+    data = XLSX.write(wb, { bookType: "xlsx", type: "array", cellDates: true }); filename = base + ".xlsx";
+  }
+  dtMsg(window.claude ? "Confirm the download in the dialog." : "");
+  try { await dl.save({ filename, data }); dtMsg(`Saved ${filename}`); }
+  catch (e){ dtMsg(e?.code === "declined" ? "Download cancelled." : e?.code === "rate_limited" ? "Another download is waiting for your answer. Finish that one first." : "Couldn't save the file. Try again.", e?.code !== "declined"); }
+}
+$("dtClose").onclick = closeDetail;
+$("dt").addEventListener("click", e => { if (e.target === $("dt")) closeDetail(); });
+$("dtQ").addEventListener("input", e => { DT.q = e.target.value; DT.shown = 200; dtRender(); });
+$("dtXlsx").onclick = () => dtDownload("xlsx");
+$("dtCsv").onclick = () => dtDownload("csv");
+
+function closeMenu(){ $("dlMenu").hidden = true; $("dlBtn").setAttribute("aria-expanded", "false"); }
+$("dlBtn").onclick = e => { e.stopPropagation(); const m = $("dlMenu"); m.hidden = !m.hidden; $("dlBtn").setAttribute("aria-expanded", String(!m.hidden)); if (!m.hidden) m.querySelector("button").focus(); };
+$("dlMenu").querySelectorAll("button").forEach(b => b.onclick = () => doDownload(b.dataset.k));
+document.addEventListener("click", e => { if (!e.target.closest(".dl")) closeMenu(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape"){ closeMenu(); closeDetail(); } });
+
+/* ---------- boot ---------- */
+try { $("accessCode").value = localStorage.getItem("pds_code") || ""; } catch {}
+$("accessCode").addEventListener("input", e => { try { localStorage.setItem("pds_code", e.target.value.trim()); } catch {} });
+(function boot(){
+  const s = makeSample(); S.rows = s.rows; S.cols = s.cols; S.label = "Sample: lab supply sales"; computeStats();
+  if (typeof echarts === "undefined"){ $("grid").innerHTML = `<div class="empty card full">The chart library didn't load. Reload the page to try again.</div>`; }
+  S.spec = sanitize(SAMPLE_SPEC); S.spec.formats = { Revenue: "currency", Cost: "currency", Profit: "currency" };
+  if (typeof echarts !== "undefined") render(); else { renderHead(); renderKpis(); }
+  showInsights(localInsights(), "Calculated from the charts (sample data)");
+  initPages(); makeChips();
+  status("Showing sample data. Upload your Excel or CSV, or try a prompt. Double-click any bar to see the rows behind it.");
+})();
+</script>
+
+</body>
+</html>
